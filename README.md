@@ -1,3 +1,7 @@
+Functionality is in place and working, but this is largely UNSTYLED (e.g. it's quite ugly at the moment!)
+
+## PRs WELCOME!!
+
 # **Discourse Collections Navigator**
 
 **Theme Summary**
