@@ -481,10 +481,10 @@
 
 .topic-slider {
   display: flex;
-  gap: var(--space-8);
+  gap: var(--space-4);
   overflow-x: auto;
   scroll-behavior: smooth;
-  padding: var(--space-8);
+  padding: var(--space-4);
   -webkit-overflow-scrolling: touch;
 
   &::-webkit-scrollbar {
