@@ -116,14 +116,15 @@
 
 .collections-nav-modal {
   background: var(--secondary) !important;
-  border-radius: var(--radius-lg);
+  border-radius: var(--d-border-radius);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 600px;
+  max-width: 800px;
   max-height: 80vh;
   overflow: hidden;
+  padding: 1em;
 
   @media (prefers-reduced-motion: no-preference) {
     animation: slideUp 300ms ease-out;
@@ -501,7 +502,7 @@
 
   .slider-item {
     flex: 0 0 auto;
-    padding: var(--space-8) var(--space-12);
+    padding: var(--space-4) var(--space-6);
     background: transparent;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
@@ -549,7 +550,7 @@
 
   .modal-items-sidebar .collection-item-link {
     flex-direction: column;
-    padding: var(--space-8);
+    padding: var(--space-4);
     font-size: var(--font-size-xs);
   }
 
@@ -558,7 +559,7 @@
   }
 
   .cooked-content {
-    padding: var(--space-12);
+    padding: var(--space-6);
   }
 }
 
