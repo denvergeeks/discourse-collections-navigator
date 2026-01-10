@@ -1,484 +1,669 @@
-// Collections Navigation - Modal with Discourse patterns integrated
-// Restores: sidebar, topic slider, paging buttons, title/description
-// Adds: Discourse carousel patterns for accessibility and performance
+/* ============================================
+   Collections Item Navigation
+   ============================================ */
 
-import { apiInitializer } from "discourse/lib/api";
+.collections-item-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-16);
+  flex-wrap: wrap;
 
-export default apiInitializer("1.24.0", (api) => {
-  api.onPageChange(() => {
-    setTimeout(() => {
-      const sidebarPanel = document.querySelector(".discourse-collections-sidebar-panel");
-      const postsContainer = document.querySelector(".posts");
-      
-      if (!sidebarPanel || !postsContainer) {
-        return;
-      }
-      
-      // Remove old nav if exists
-      document.querySelectorAll(".collections-nav-injected").forEach(el => el.remove());
-      document.querySelectorAll(".collections-nav-modal-overlay").forEach(el => el.remove());
-      
-      // Extract collection title and description
-      const collectionTitleEl = document.querySelector(".collection-sidebar__title");
-      const collectionDescEl = document.querySelector(".collection-sidebar__desc");
-      const collectionName = collectionTitleEl?.textContent?.trim() || "Collection";
-      const collectionDesc = collectionDescEl?.textContent?.trim() || "";
-      
-// Extract items from sidebar - FIXED selector
-const links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
-const items = Array.from(links).map((link) => {
-  const href = link.getAttribute("href");
-  // Try multiple selectors to get the title text
-  let title = link.querySelector(".collection-link-content-text")?.textContent?.trim();
-  if (!title) title = link.querySelector(".sidebar-section-link-content-text")?.textContent?.trim();
-  if (!title) title = link.querySelector("[class*='content-text']")?.textContent?.trim();
-  if (!title) title = link.textContent?.trim();
-  if (!title) title = "Untitled";
-  
-  const idMatch = href.match(/\/(\d+)$/);
-  const topicId = idMatch ? idMatch[1] : null;
-  return { title, href, topicId };
-});
+  @media (max-width: 640px) {
+    flex-direction: column;
+    gap: var(--space-8);
+  }
 
-      
-      if (items.length < 2) return;
-      
-      // Find current item
-      const currentUrl = window.location.pathname;
-      const currentIndex = items.findIndex(item => currentUrl.includes(item.href.split("/")[2]));
-      
-      if (currentIndex === -1) return;
-      
-      const currentItem = items[currentIndex];
-      const totalItems = items.length;
-      
-      // Get cooked content from current page
-      const getPostContent = () => {
-        let content = document.querySelector(".post-stream .posts .boxed-body");
-        if (!content) content = document.querySelector(".posts .boxed-body");
-        if (!content) content = document.querySelector(".post-content");
-        if (!content) content = document.querySelector("[data-post-id] .cooked");
-        if (!content) content = document.querySelector(".cooked");
-        return content ? content.innerHTML : "<p>Loading content...</p>";
-      };
-      
-      const cookedContent = getPostContent();
-      
-      // ================================================================
-      // DISCOURSE PATTERNS INTEGRATION
-      // ================================================================
-      
-      // Pattern #1: Constants
-      const KEYBOARD_THROTTLE_MS = 150;
-      const SCROLL_THROTTLE_MS = 50;
-      
-      // Pattern #2: Scroll behavior with reduced-motion support
-      function getScrollBehavior() {
-        return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
-          ? "auto"
-          : "smooth";
+  .collections-nav-toggle {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    justify-content: flex-start;
+
+    .d-icon {
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 640px) {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .collections-quick-nav {
+    display: flex;
+    gap: var(--space-8);
+    flex-shrink: 0;
+
+    @media (max-width: 640px) {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .collections-nav-prev,
+  .collections-nav-next {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: var(--space-8);
+    border-radius: var(--radius-base);
+    transition: all 150ms ease-out;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &:not(:disabled):hover {
+      background: var(--color-secondary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    .d-icon {
+      font-size: var(--font-size-lg);
+    }
+  }
+}
+
+/* ============================================
+   Modal Overlay Container
+   ============================================ */
+
+.collections-nav-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 9999;
+  padding: var(--space-16);
+  overflow-y: auto;
+  display: none;
+  align-items: center;
+  justify-content: center;
+
+  &[style*="display: flex"] {
+    display: flex;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: fadeIn 200ms ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.collections-nav-modal {
+  background: var(--secondary) !important;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow: hidden;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: slideUp 300ms ease-out;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   Modal Header
+   ============================================ */
+
+.modal-header {
+  padding: var(--space-20);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-16);
+
+  .modal-title {
+    margin: 0;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+    line-height: var(--line-height-tight);
+  }
+
+  .modal-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: var(--space-8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all 150ms ease-out;
+    flex-shrink: 0;
+
+    &:hover {
+      background: var(--color-secondary);
+      color: var(--color-text);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    .d-icon {
+      font-size: var(--font-size-lg);
+    }
+  }
+}
+
+/* ============================================
+   Modal Content
+   ============================================ */
+
+.modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.collection-items-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  .collection-item {
+    border-bottom: 1px solid var(--color-border);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &.active .collection-item-link {
+      background: var(--color-secondary);
+      font-weight: var(--font-weight-semibold);
+    }
+  }
+
+  .collection-item-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    padding: var(--space-12) var(--space-16);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: all 150ms ease-out;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    font-size: inherit;
+
+    &:hover {
+      background: var(--color-secondary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: -2px;
+    }
+
+    .item-number {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: var(--color-border);
+      border-radius: 50%;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-secondary);
+    }
+
+    .item-title {
+      flex: 1;
+      font-size: var(--font-size-base);
+      color: var(--color-text);
+      line-height: var(--line-height-normal);
+    }
+
+    .d-icon {
+      flex-shrink: 0;
+      color: var(--color-success);
+      font-size: var(--font-size-lg);
+    }
+  }
+}
+
+/* ============================================
+   Modal Footer
+   ============================================ */
+
+.modal-footer {
+  padding: var(--space-16);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-12);
+}
+
+/* ============================================
+   Split Modal Layout
+   ============================================ */
+
+.collections-modal-with-content {
+  max-width: 900px;
+  max-height: 85vh;
+  background-color: var(--secondary) !important;
+
+  @media (max-width: 1024px) {
+    max-width: 95vw;
+  }
+
+  .modal-header {
+    padding: var(--space-16);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .modal-body-split {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+    }
+  }
+
+  .modal-items-sidebar {
+    flex: 0 0 250px;
+    border-right: 1px solid var(--color-border);
+    overflow-y: auto;
+    transition: flex 300ms ease-out, opacity 300ms ease-out;
+
+    &.collapsed {
+      flex: 0 0 0;
+      opacity: 0;
+      border-right: none;
+      overflow: hidden;
+    }
+
+    @media (max-width: 768px) {
+      flex: 0 0 150px;
+      border-right: none;
+      border-bottom: 1px solid var(--color-border);
+
+      &.collapsed {
+        flex: 0 0 0;
+        border-bottom: none;
       }
-      
-      // Pattern #5: Throttle helper
-      function throttle(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-          const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-          };
-          clearTimeout(timeout);
-          timeout = setTimeout(later, wait);
-        };
+    }
+  }
+
+  .modal-content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    .content-header {
+      padding: var(--space-16);
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-surface);
+      flex-shrink: 0;
+
+      .content-title {
+        margin: 0;
+        font-size: var(--font-size-lg);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text);
       }
-      
-      // ================================================================
-      // CREATE NAVIGATION BAR (Top of page)
-      // ================================================================
-      
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      
-      navBar.innerHTML = `
-        <button class="btn btn--primary collections-nav-toggle" title="Open collection navigator" type="button">
-          <span class="d-icon d-icon-list"></span>
-          <span class="nav-text">Collection: ${currentItem.title} (${currentIndex + 1}/${totalItems})</span>
-        </button>
-        <div class="collections-quick-nav">
-          <button class="btn btn--secondary collections-nav-prev" ${currentIndex === 0 ? 'disabled' : ''} title="Previous (arrow key)" type="button">
-            <span class="d-icon d-icon-arrow-left"></span>
-          </button>
-          <button class="btn btn--secondary collections-nav-next" ${currentIndex === totalItems - 1 ? 'disabled' : ''} title="Next (arrow key)" type="button">
-            <span class="d-icon d-icon-arrow-right"></span>
-          </button>
-        </div>
-      `;
-      
-      postsContainer.parentNode.insertBefore(navBar, postsContainer);
-      
-      // ================================================================
-      // CREATE MODAL WITH ALL FEATURES
-      // ================================================================
-      
-      const modal = document.createElement("div");
-      modal.className = "collections-nav-modal-overlay";
-      
-      modal.innerHTML = `
-        <div class="collections-nav-modal collections-modal-with-content">
-          <div class="modal-header">
-            <button class="modal-sidebar-toggle" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">
-              <span class="d-icon d-icon-bars"></span>
-            </button>
-            <div class="modal-header-content">
-              <h2 class="modal-title">${collectionName}</h2>
-              ${collectionDesc ? `<p class="collection-description">${collectionDesc}</p>` : ''}
-              <div class="topic-slider-container">
-                <div class="topic-slider">
-                  ${items.map((item, idx) => `
-                    <button class="slider-item ${idx === currentIndex ? 'active' : ''}" data-index="${idx}" title="${item.title}">
-                      ${item.title}
-                    </button>
-                  `).join('')}
-                </div>
-              </div>
-            </div>
-            <button class="modal-close-btn" aria-label="Close modal" type="button">
-              <span class="d-icon d-icon-times"></span>
-            </button>
-          </div>
-          
-          <div class="modal-body-split">
-            <div class="modal-items-sidebar">
-              <ul class="collection-items-list">
-                ${items.map((item, idx) => `
-                  <li class="collection-item ${idx === currentIndex ? 'active' : ''}">
-                    <div class="collection-item-link" data-index="${idx}" title="${item.title}">
-                      <span class="item-number">${idx + 1}</span>
-                      <span class="item-title">${item.title}</span>
-                      ${idx === currentIndex ? '<span class="d-icon d-icon-check"></span>' : ''}
-                    </div>
-                  </li>
-                `).join('')}
-              </ul>
-            </div>
-            
-            <div class="modal-content-area">
-              <div class="content-header">
-                <h3 class="content-title">${currentItem.title}</h3>
-              </div>
-              <div class="cooked-content">
-                ${cookedContent}
-              </div>
-            </div>
-          </div>
-          
-          <div class="modal-nav-footer">
-            <button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ${currentIndex === 0 ? 'disabled' : ''}>
-              <span class="d-icon d-icon-arrow-left"></span>
-              Previous
-            </button>
-            <div class="modal-paging">
-              <span class="paging-text">${currentIndex + 1}/${totalItems}</span>
-            </div>
-            <button class="btn btn--secondary modal-content-next" title="Next item" type="button" ${currentIndex === totalItems - 1 ? 'disabled' : ''}>
-              Next
-              <span class="d-icon d-icon-arrow-right"></span>
-            </button>
-          </div>
-        </div>
-      `;
-      
-      document.body.appendChild(modal);
-      
-      // Get all elements
-      const toggleBtn = navBar.querySelector(".collections-nav-toggle");
-      const prevBtn = navBar.querySelector(".collections-nav-prev");
-      const nextBtn = navBar.querySelector(".collections-nav-next");
-      const closeBtn = modal.querySelector(".modal-close-btn");
-      const itemLinks = modal.querySelectorAll(".collection-item-link");
-      const sliderItems = modal.querySelectorAll(".slider-item");
-      const contentArea = modal.querySelector(".cooked-content");
-      const contentTitle = modal.querySelector(".content-title");
-      const sidebarToggle = modal.querySelector(".modal-sidebar-toggle");
-      const sidebar = modal.querySelector(".modal-items-sidebar");
-      const modalContentPrev = modal.querySelector(".modal-content-prev");
-      const modalContentNext = modal.querySelector(".modal-content-next");
-      const pagingText = modal.querySelector(".paging-text");
-      const topicSlider = modal.querySelector(".topic-slider");
-      
-      let selectedIndex = currentIndex;
-      let sidebarOpen = true;
-      
-      // Modal show/hide
-      const showModal = () => {
-        modal.style.display = "flex";
-      };
-      
-      const hideModal = () => {
-        modal.style.display = "none";
-      };
-      
-      // Sidebar toggle
-      const toggleSidebar = () => {
-        sidebarOpen = !sidebarOpen;
-        if (sidebarOpen) {
-          sidebar.classList.remove("collapsed");
-        } else {
-          sidebar.classList.add("collapsed");
-        }
-      };
-      
-      // Scroll slider to active item (Pattern #2)
-      const scrollSliderToActive = () => {
-        const activeSlider = modal.querySelector(".slider-item.active");
-        if (activeSlider) {
-          activeSlider.scrollIntoView({ 
-            behavior: getScrollBehavior(), 
-            block: "nearest", 
-            inline: "center" 
-          });
-        }
-      };
-      
-      // Update page content (navigates to new URL)
-      const updatePageContent = (index) => {
-        if (index < 0 || index >= totalItems) return;
-        
-        selectedIndex = index;
-        
-        // Update nav bar
-        const navText = navBar.querySelector(".nav-text");
-        navText.textContent = `Collection: ${items[index].title} (${index + 1}/${totalItems})`;
-        
-        // Update prev/next button disabled states
-        prevBtn.disabled = (index === 0);
-        nextBtn.disabled = (index === totalItems - 1);
-        
-        // Fetch new topic content via API
-        if (items[index].topicId) {
-          fetch(`/t/${items[index].topicId}.json`)
-            .then(response => response.json())
-            .then(data => {
-              // Update page title
-              document.title = items[index].title;
-              
-              // Update the post content on the page
-              let targetContent = document.querySelector(".post-stream .posts .boxed-body");
-              if (!targetContent) targetContent = document.querySelector(".posts .boxed-body");
-              if (!targetContent) targetContent = document.querySelector(".post-content");
-              if (!targetContent) targetContent = document.querySelector("[data-post-id] .cooked");
-              if (!targetContent) targetContent = document.querySelector(".cooked");
-              
-              if (targetContent) {
-                if (data.post_stream && data.post_stream.posts && data.post_stream.posts[0]) {
-                  const cooked = data.post_stream.posts[0].cooked;
-                  if (cooked) {
-                    targetContent.innerHTML = cooked;
-                    
-                    // Also update modal content
-                    contentTitle.textContent = items[index].title;
-                    if (data.post_stream && data.post_stream.posts && data.post_stream.posts[0]) {
-                      const cooked = data.post_stream.posts[0].cooked;
-                      if (cooked) {
-                        contentArea.innerHTML = cooked;
-                      }
-                    }
-                  }
-                }
-              }
-            })
-            .catch(err => console.error("Error updating content", err));
-        }
-      };
-      
-      // Update modal content (stays in modal)
-      const updateModalContent = throttle((index) => {
-        if (index < 0 || index >= totalItems) return;
-        
-        selectedIndex = index;
-        
-        // Update title immediately
-        contentTitle.textContent = items[index].title;
-        contentArea.innerHTML = "<p>Loading...</p>";
-        
-        // Update paging text
-        pagingText.textContent = `${index + 1}/${totalItems}`;
-        
-        // Update modal buttons
-        modalContentPrev.disabled = (index === 0);
-        modalContentNext.disabled = (index === totalItems - 1);
-        
-        // Update slider active state
-        sliderItems.forEach(item => {
-          const idx = parseInt(item.getAttribute("data-index"));
-          if (idx === index) {
-            item.classList.add("active");
-          } else {
-            item.classList.remove("active");
-          }
-        });
-        
-        // Scroll slider to active item
-        setTimeout(scrollSliderToActive, 100);
-        
-        // Use Discourse API to fetch the topic
-        if (items[index].topicId) {
-          fetch(`/t/${items[index].topicId}.json`)
-            .then(response => response.json())
-            .then(data => {
-              // Get the first post's cooked content
-              if (data.post_stream && data.post_stream.posts && data.post_stream.posts[0]) {
-                const cooked = data.post_stream.posts[0].cooked;
-                if (cooked) {
-                  contentArea.innerHTML = cooked;
-                } else {
-                  contentArea.innerHTML = "<p>No cooked content found</p>";
-                }
-              } else {
-                contentArea.innerHTML = "<p>Could not find post content</p>";
-              }
-            })
-            .catch(err => {
-              contentArea.innerHTML = "<p>Error loading content</p>";
-              console.error("API error", err);
-            });
-        } else {
-          contentArea.innerHTML = "<p>Could not determine topic ID</p>";
-        }
-        
-        // Update active item in list
-        itemLinks.forEach(link => {
-          const idx = parseInt(link.getAttribute("data-index"));
-          if (idx === index) {
-            link.parentElement.classList.add("active");
-          } else {
-            link.parentElement.classList.remove("active");
-          }
-        });
-        
-        // Update nav bar
-        const navText = navBar.querySelector(".nav-text");
-        navText.textContent = `Collection: ${items[index].title} (${index + 1}/${totalItems})`;
-        
-        // Update prev/next button disabled states
-        prevBtn.disabled = (index === 0);
-        nextBtn.disabled = (index === totalItems - 1);
-      }, SCROLL_THROTTLE_MS);
-      
-      // ================================================================
-      // EVENT LISTENERS
-      // ================================================================
-      
-      // Toggle modal
-      toggleBtn.addEventListener("click", showModal);
-      
-      // Sidebar toggle
-      sidebarToggle.addEventListener("click", toggleSidebar);
-      
-      // Close modal
-      closeBtn.addEventListener("click", hideModal);
-      
-      // Page nav buttons - update page content
-      prevBtn.addEventListener("click", () => {
-        if (selectedIndex > 0) {
-          updatePageContent(selectedIndex - 1);
-        }
-      });
-      
-      nextBtn.addEventListener("click", () => {
-        if (selectedIndex < totalItems - 1) {
-          updatePageContent(selectedIndex + 1);
-        }
-      });
-      
-      // Modal content nav buttons
-      modalContentPrev.addEventListener("click", () => {
-        if (selectedIndex > 0) {
-          updateModalContent(selectedIndex - 1);
-        }
-      });
-      
-      modalContentNext.addEventListener("click", () => {
-        if (selectedIndex < totalItems - 1) {
-          updateModalContent(selectedIndex + 1);
-        }
-      });
-      
-      // Item links in modal - update modal content
-      itemLinks.forEach(link => {
-        link.style.cursor = "pointer";
-        link.addEventListener("click", (e) => {
-          const index = parseInt(link.getAttribute("data-index"));
-          updateModalContent(index);
-        });
-      });
-      
-      // Slider item clicks
-      sliderItems.forEach(item => {
-        item.addEventListener("click", (e) => {
-          const index = parseInt(item.getAttribute("data-index"));
-          updateModalContent(index);
-        });
-      });
-      
-      // Close on overlay background only
-      modal.addEventListener("click", (e) => {
-        if (e.target === modal) {
-          hideModal();
-        }
-      });
-      
-      // ================================================================
-      // KEYBOARD NAVIGATION (Pattern #1 - Throttled)
-      // ================================================================
-      
-      let lastKeyPress = 0;
-      
-      document.addEventListener("keydown", (e) => {
-        if (modal.style.display === "flex") {
-          // Modal is open - navigate within modal
-          if (e.key === "ArrowLeft" && selectedIndex > 0) {
-            const now = Date.now();
-            if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
-              return;
-            }
-            lastKeyPress = now;
-            e.preventDefault();
-            updateModalContent(selectedIndex - 1);
-          } else if (e.key === "ArrowRight" && selectedIndex < totalItems - 1) {
-            const now = Date.now();
-            if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
-              return;
-            }
-            lastKeyPress = now;
-            e.preventDefault();
-            updateModalContent(selectedIndex + 1);
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            hideModal();
-          }
-        } else {
-          // Modal is closed - navigate the page
-          if (e.key === "ArrowLeft" && selectedIndex > 0) {
-            const now = Date.now();
-            if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
-              return;
-            }
-            lastKeyPress = now;
-            e.preventDefault();
-            updatePageContent(selectedIndex - 1);
-          } else if (e.key === "ArrowRight" && selectedIndex < totalItems - 1) {
-            const now = Date.now();
-            if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
-              return;
-            }
-            lastKeyPress = now;
-            e.preventDefault();
-            updatePageContent(selectedIndex + 1);
-          }
-        }
-      });
-      
-    }, 500);
-  });
-});
+    }
+
+    .cooked-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--space-16);
+      background-color: var(--secondary) !important;
+
+      @media (max-width: 768px) {
+        padding: var(--space-12);
+      }
+    }
+  }
+}
+
+/* ============================================
+   Sidebar Toggle Button
+   ============================================ */
+/*
+.modal-sidebar-toggle {
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  cursor: pointer;
+  padding: var(--space-8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 150ms ease-out;
+
+  &:hover {
+    background: var(--secondary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  .d-icon {
+    font-size: var(--font-size-lg);
+  }
+}
+*/
+
+/* ============================================
+   Modal Navigation Footer (Paging Controls)
+   ============================================ */
+
+.modal-nav-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border-top: 1px solid var(--color-border);
+  background: var(--secondary);
+
+  .btn {
+    flex: 1;
+  }
+
+  .paging-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+
+  .modal-content-prev,
+  .modal-content-next {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    justify-content: center;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+
+/* ============================================
+   Modal Header Content (Title + Slider)
+   ============================================ */
+
+.modal-header-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+
+  .modal-title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+    line-height: var(--line-height-tight);
+    text-align: center;
+  }
+
+  .collection-description {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    text-align: center;
+  }
+}
+
+/* ============================================
+   Topic Slider (Horizontal Navigation)
+   Based on Discourse user profile menu pattern
+   ============================================ */
+
+.topic-slider-container {
+  width: 100%;
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.topic-slider {
+  display: flex;
+  gap: var(--space-8);
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: var(--space-8);
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--secondary);
+    border-radius: 2px;
+  }
+
+  .slider-item {
+    flex: 0 0 auto;
+    padding: var(--space-8) var(--space-12);
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    transition: all 150ms ease-out;
+
+    &:hover {
+      background: var(--secondary);
+      border-color: var(--color-primary);
+    }
+
+    &.active {
+      background: var(--color-primary);
+      color: var(--color-btn-primary-text);
+      border-color: var(--color-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+}
+
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+
+@media (max-width: 768px) {
+  .modal-items-sidebar .collection-items-list {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0;
+  }
+
+  .modal-items-sidebar .collection-item {
+    flex: 0 0 80px;
+    border-bottom: none;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .modal-items-sidebar .collection-item-link {
+    flex-direction: column;
+    padding: var(--space-8);
+    font-size: var(--font-size-xs);
+  }
+
+  .modal-items-sidebar .item-title {
+    display: none;
+  }
+
+  .cooked-content {
+    padding: var(--space-12);
+  }
+}
+
+/* ============================================
+   Dark Mode Support
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  .collections-item-nav-bar {
+    background: var(--color-surface);
+  }
+
+  .collection-item-link:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* ============================================
+   High Contrast Mode
+   ============================================ */
+
+@media (prefers-contrast: more) {
+  .collections-nav-prev,
+  .collections-nav-next {
+    border: 1px solid currentColor;
+  }
+
+  .modal-close-btn {
+    border: 1px solid currentColor;
+  }
+
+  .collection-item-link {
+    border-left: 3px solid transparent;
+
+    .active & {
+      border-left-color: var(--color-success);
+    }
+  }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+
+@media print {
+  .collections-item-nav-bar,
+  .collections-nav-modal-overlay,
+  .collections-nav-modal {
+    display: none;
+  }
+}
+
+/* ============================================
+   Discourse Carousel Pattern Support
+   (Pattern #2 - Reduced Motion)
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-slider,
+  .modal-items-sidebar,
+  .collection-item-link,
+  .slider-item {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ============================================
+   Additional Modal Paging Styles
+   ============================================ */
+
+.modal-paging {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-12);
+}
+
+/* FALLBACK: Explicit color overrides */
+.collections-item-nav-bar,
+.modal-header,
+.topic-slider,
+.collection-items-list,
+.content-header,
+.modal-nav-footer {
+  * {
+    color: inherit !important;
+  }
+}
+
+.collections-nav-toggle .nav-text,
+.modal-title,
+.slider-item,
+.item-title,
+.item-number,
+.content-title,
+.paging-text {
+  color: var(--primary) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.slider-item.active {
+  color: var(--secondary) !important;
+  background: var(--tertiary) !important;
+}
