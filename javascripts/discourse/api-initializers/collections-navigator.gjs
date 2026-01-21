@@ -101,15 +101,15 @@ const items = Array.from(links).map((link) => {
       
       navBar.innerHTML = `
         <button class="btn btn--primary collections-nav-toggle" title="Open collection navigator" type="button">
-          <span class="d-icon d-icon-list"></span>
+<svg class="fa d-icon d-icon-collection-pip svg-icon fa-width-auto prefix-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#collection-pip"></use></svg>
           <span class="nav-text">Collection: ${currentItem.title} (${currentIndex + 1}/${totalItems})</span>
         </button>
         <div class="collections-quick-nav">
           <button class="btn btn--secondary collections-nav-prev" ${currentIndex === 0 ? 'disabled' : ''} title="Previous (arrow key)" type="button">
-            <span class="d-icon d-icon-arrow-left"></span>
+<svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-left"></use></svg>
           </button>
           <button class="btn btn--secondary collections-nav-next" ${currentIndex === totalItems - 1 ? 'disabled' : ''} title="Next (arrow key)" type="button">
-            <span class="d-icon d-icon-arrow-right"></span>
+<svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-right"></use></svg>
           </button>
         </div>
       `;
@@ -174,7 +174,7 @@ const items = Array.from(links).map((link) => {
           
           <div class="modal-nav-footer">
             <button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ${currentIndex === 0 ? 'disabled' : ''}>
-              <span class="d-icon d-icon-arrow-left"></span>
+<svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-left"></use></svg>
               Previous
             </button>
             <div class="modal-paging">
@@ -182,7 +182,7 @@ const items = Array.from(links).map((link) => {
             </div>
             <button class="btn btn--secondary modal-content-next" title="Next item" type="button" ${currentIndex === totalItems - 1 ? 'disabled' : ''}>
               Next
-              <span class="d-icon d-icon-arrow-right"></span>
+<svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-right"></use></svg>
             </button>
           </div>
         </div>
