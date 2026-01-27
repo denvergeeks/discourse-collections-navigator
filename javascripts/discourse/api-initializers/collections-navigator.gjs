@@ -54,11 +54,8 @@ const items = Array.from(links).map((link) => {
       
       // Get cooked content from current page
       const getPostContent = () => {
-        let content = document.querySelector(".post-stream .posts .boxed-body");
-        if (!content) content = document.querySelector(".posts .boxed-body");
-        if (!content) content = document.querySelector(".post-content");
-        if (!content) content = document.querySelector("[data-post-id] .cooked");
-        if (!content) content = document.querySelector(".cooked");
+        let content = document.querySelector(".topic-body .cooked");
+        if (!content) content = document.querySelector(".topic-body .cooked");
         return content ? content.innerHTML : "<p>Loading content...</p>";
       };
       
