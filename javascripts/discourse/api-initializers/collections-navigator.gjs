@@ -236,7 +236,11 @@ const items = Array.from(links).map((link) => {
           });
         }
       };
-      
+
+      // ================================================================
+      // UPDATE PAGE IN PLACE / INLINE
+      // ================================================================      
+
       // Update page content (navigates to new URL)
       const updatePageContent = (index) => {
         if (index < 0 || index >= totalItems) return;
