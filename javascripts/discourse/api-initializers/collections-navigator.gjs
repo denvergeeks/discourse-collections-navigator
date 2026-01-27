@@ -109,29 +109,7 @@ const items = Array.from(links).map((link) => {
 <svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-right"></use></svg>
           </button>
         </div>
-              <div class="topic-slider-container">
-                <div class="topic-slider">
-                  ${items.map((item, idx) => `
-                    <button class="slider-item ${idx === currentIndex ? 'active' : ''}" data-index="${idx}" title="${item.title}">
-                      ${item.title}
-                    </button>
-                  `).join('')}
-                </div>
-              </div>
       `;
-
-
-      // Scroll slider to active item (Pattern #2)
-      const scrollSliderToActive = () => {
-        const activeSlider = modal.querySelector(".slider-item.active");
-        if (activeSlider) {
-          activeSlider.scrollIntoView({ 
-            behavior: getScrollBehavior(), 
-            block: "nearest", 
-            inline: "center" 
-          });
-        }
-      };
 
       postsContainer.parentNode.insertBefore(navBar, postsContainer);
       
@@ -276,60 +254,6 @@ const items = Array.from(links).map((link) => {
         // Update prev/next button disabled states
         prevBtn.disabled = (index === 0);
         nextBtn.disabled = (index === totalItems - 1);
-
-
-
-
-
-
-        // Update slider active state
-        sliderItems.forEach(item => {
-          const idx = parseInt(item.getAttribute("data-index"));
-          if (idx === index) {
-            item.classList.add("active");
-          } else {
-            item.classList.remove("active");
-          }
-        });
-        
-        // Scroll slider to active item
-        setTimeout(scrollSliderToActive, 100);
-        
-        // Use Discourse API to fetch the topic
-        if (items[index].topicId) {
-          fetch(`/t/${items[index].topicId}.json`)
-            .then(response => response.json())
-            .then(data => {
-              // Get the first post's cooked content
-              if (data.post_stream && data.post_stream.posts && data.post_stream.posts[0]) {
-                const cooked = data.post_stream.posts[0].cooked;
-                if (cooked) {
-                  contentArea.innerHTML = cooked;
-                } else {
-                  contentArea.innerHTML = "<p>No cooked content found</p>";
-                }
-              } else {
-                contentArea.innerHTML = "<p>Could not find post content</p>";
-              }
-            })
-            .catch(err => {
-              contentArea.innerHTML = "<p>Error loading content</p>";
-              console.error("API error", err);
-            });
-        } else {
-          contentArea.innerHTML = "<p>Could not determine topic ID</p>";
-        }
-        
-        // Update active item in list
-        itemLinks.forEach(link => {
-          const idx = parseInt(link.getAttribute("data-index"));
-          if (idx === index) {
-            link.parentElement.classList.add("active");
-          } else {
-            link.parentElement.classList.remove("active");
-          }
-        });
-
 
 
 
