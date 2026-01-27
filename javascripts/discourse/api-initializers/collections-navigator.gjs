@@ -368,7 +368,7 @@ const items = Array.from(links).map((link) => {
         
         // Update nav bar
         const navText = navBar.querySelector(".nav-text");
-        navText.textContent = `Collection: ${items[index].title} (${index + 1}/${totalItems})`;
+        navText.textContent = `${collectionName}: ${items[index].title} (${index + 1}/${totalItems})`;
         
         // Update prev/next button disabled states
         prevBtn.disabled = (index === 0);
