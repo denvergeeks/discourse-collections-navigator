@@ -99,7 +99,7 @@ const items = Array.from(links).map((link) => {
       navBar.innerHTML = `
         <button class="btn btn--primary collections-nav-toggle" title="Open collection navigator" type="button">
 <svg class="fa d-icon d-icon-collection-pip svg-icon fa-width-auto prefix-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#collection-pip"></use></svg>
-          <span class="nav-text">Collection: ${currentItem.title} (${currentIndex + 1}/${totalItems})</span>
+          <span class="nav-text">${collectionName}: ${currentItem.title} (${currentIndex + 1}/${totalItems})</span>
         </button>
         <div class="collections-quick-nav">
           <button class="btn btn--secondary collections-nav-prev" ${currentIndex === 0 ? 'disabled' : ''} title="Previous (arrow key)" type="button">
