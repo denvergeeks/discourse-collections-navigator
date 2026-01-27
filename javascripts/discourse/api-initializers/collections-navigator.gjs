@@ -109,6 +109,15 @@ const items = Array.from(links).map((link) => {
 <svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-right"></use></svg>
           </button>
         </div>
+              <div class="topic-slider-container">
+                <div class="topic-slider">
+                  ${items.map((item, idx) => `
+                    <button class="slider-item ${idx === currentIndex ? 'active' : ''}" data-index="${idx}" title="${item.title}">
+                      ${item.title}
+                    </button>
+                  `).join('')}
+                </div>
+              </div>
       `;
       
       postsContainer.parentNode.insertBefore(navBar, postsContainer);
