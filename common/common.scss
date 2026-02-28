@@ -213,14 +213,18 @@
     &:last-child {
       border-bottom: none;
     }
-     
+/*
     &.hover,
     &.active {
       color: var(--secondary) !important;
       background: var(--tertiary) !important;
     }
+*/
      
+    &.hover .collection-item-link,
     &.active .collection-item-link {
+      color: var(--secondary) !important;
+      background: var(--tertiary) !important;
       font-weight: var(--font-weight-semibold);
     }
    }
