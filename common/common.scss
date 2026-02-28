@@ -214,7 +214,8 @@
       border-bottom: none;
     }
      
-    &.active .collection-item {
+    &.hover,
+    &.active {
       color: var(--secondary) !important;
       background: var(--tertiary) !important;
     }
