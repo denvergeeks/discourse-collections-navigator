@@ -233,7 +233,7 @@
     font-size: inherit;
 
     &:hover,
-    &.active {
+    &:active {
       color: var(--secondary);
       background: var(--tertiary);
       font-weight: var(--font-weight-semibold);
