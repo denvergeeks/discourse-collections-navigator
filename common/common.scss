@@ -219,11 +219,11 @@
       background: var(--tertiary) !important;
     }
      
-      &.active .collection-item-link {
-        font-weight: var(--font-weight-semibold);
-      }
+    &.active .collection-item-link {
+      font-weight: var(--font-weight-semibold);
     }
-  }
+   }
+
 
   .collection-item-link {
     display: flex;
