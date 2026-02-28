@@ -478,6 +478,10 @@
   width: 100%;
   overflow: hidden;
   border-bottom: 1px solid var(--color-border);
+
+    &.collapsed {
+      display: none;
+    }
 }
 
 .topic-slider {
