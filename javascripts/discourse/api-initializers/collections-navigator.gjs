@@ -123,7 +123,7 @@ const items = Array.from(links).map((link) => {
       modal.innerHTML = `
         <div class="collections-nav-modal collections-modal-with-content">
           <div class="modal-header">
-            <button class="modal-sidebar-toggle btn btn-flat btn-sidebar-toggle no-text btn-icon narrow-desktop" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">
+            <button class="modal--toggle btn btn-flat btn--toggle no-text btn-icon narrow-desktop" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">
               <svg class="fa d-icon d-icon-bars svg-icon svg-string" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#bars"></use></svg>
             </button>
             <div class="modal-header-content">
@@ -201,6 +201,7 @@ const items = Array.from(links).map((link) => {
       const modalContentPrev = modal.querySelector(".modal-content-prev");
       const modalContentNext = modal.querySelector(".modal-content-next");
       const pagingText = modal.querySelector(".paging-text");
+const topicSliderContainer = modal.querySelector(".topic-slider-container");
       const topicSlider = modal.querySelector(".topic-slider");
       
       let selectedIndex = currentIndex;
@@ -220,7 +221,9 @@ const items = Array.from(links).map((link) => {
         sidebarOpen = !sidebarOpen;
         if (sidebarOpen) {
           sidebar.classList.remove("collapsed");
+topicSliderContainer.classList.add("collapsed");
         } else {
+topicSliderContainer.classList.remove("collapsed");
           sidebar.classList.add("collapsed");
         }
       };
