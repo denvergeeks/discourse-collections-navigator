@@ -261,7 +261,7 @@
       align-items: center;
       justify-content: center;
       width: 32px;
-      height: 32px;
+      /* height: 32px; */
       background: var(--color-border);
       border-radius: 50%;
       font-size: var(--font-size-sm);
@@ -672,9 +672,9 @@
 .item-number,
 .content-title,
 .paging-text {
-  color: var(--primary) !important;
-  opacity: 1 !important;
-  visibility: visible !important;
+  color: var(--primary);
+  opacity: 1;
+  visibility: visible;
 }
 
 /*
