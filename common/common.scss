@@ -213,10 +213,15 @@
     &:last-child {
       border-bottom: none;
     }
-
-    &.active .collection-item-link {
-      background: var(--color-secondary);
-      font-weight: var(--font-weight-semibold);
+     
+    &.active .collection-item {
+      color: var(--secondary) !important;
+      background: var(--tertiary) !important;
+    }
+     
+      &.active .collection-item-link {
+        font-weight: var(--font-weight-semibold);
+      }
     }
   }
 
@@ -518,14 +523,13 @@
     transition: all 150ms ease-out;
 
     &:hover {
-      background: var(--secondary);
-      border-color: var(--color-primary);
+      color: var(--secondary) !important;
+      background: var(--tertiary) !important;
     }
 
     &.active {
-      background: var(--color-primary);
-      color: var(--color-btn-primary-text);
-      border-color: var(--color-primary);
+      color: var(--secondary) !important;
+      background: var(--tertiary) !important;
     }
 
     &:focus-visible {
@@ -668,7 +672,9 @@
   visibility: visible !important;
 }
 
+/*
 .slider-item.active {
   color: var(--secondary) !important;
   background: var(--tertiary) !important;
 }
+*/
