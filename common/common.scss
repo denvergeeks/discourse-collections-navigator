@@ -232,8 +232,13 @@
     font-family: inherit;
     font-size: inherit;
 
-    &:hover,
-    &:active {
+    &:hover {
+      color: var(--secondary);
+      background: var(--tertiary);
+      font-weight: var(--font-weight-semibold);
+    }
+
+    &.active {
       color: var(--secondary);
       background: var(--tertiary);
       font-weight: var(--font-weight-semibold);
