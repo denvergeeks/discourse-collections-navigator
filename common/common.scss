@@ -213,20 +213,6 @@
     &:last-child {
       border-bottom: none;
     }
-/*
-    &.hover,
-    &.active {
-      color: var(--secondary);
-      background: var(--tertiary);
-    }
-*/
-     
-    &.hover .collection-item-link,
-    &.active .collection-item-link {
-      color: var(--secondary);
-      background: var(--tertiary);
-      font-weight: var(--font-weight-semibold);
-    }
    }
 
 
@@ -246,8 +232,11 @@
     font-family: inherit;
     font-size: inherit;
 
-    &:hover {
-      background: var(--color-secondary);
+    &:hover,
+    &.active {
+      color: var(--secondary);
+      background: var(--tertiary);
+      font-weight: var(--font-weight-semibold);
     }
 
     &:focus-visible {
