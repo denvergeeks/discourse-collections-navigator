@@ -216,15 +216,15 @@
 /*
     &.hover,
     &.active {
-      color: var(--secondary) !important;
-      background: var(--tertiary) !important;
+      color: var(--secondary);
+      background: var(--tertiary);
     }
 */
      
     &.hover .collection-item-link,
     &.active .collection-item-link {
-      color: var(--secondary) !important;
-      background: var(--tertiary) !important;
+      color: var(--secondary);
+      background: var(--tertiary);
       font-weight: var(--font-weight-semibold);
     }
    }
