@@ -318,7 +318,7 @@
     display: flex;
     flex: 1;
     overflow: hidden;
-    gap: 0;
+    gap: var(--space-2);
 
     @media (max-width: 768px) {
       flex-direction: column;
@@ -326,7 +326,7 @@
   }
 
   .modal-items-sidebar {
-    flex: 0 0 250px;
+    flex: 0 0 200px;
     border-right: 1px solid var(--color-border);
     overflow-y: auto;
     transition: flex 300ms ease-out, opacity 300ms ease-out;
