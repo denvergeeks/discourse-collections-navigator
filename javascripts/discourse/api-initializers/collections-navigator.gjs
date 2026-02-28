@@ -145,7 +145,7 @@ const items = Array.from(links).map((link) => {
           </div>
           
           <div class="modal-body-split">
-            <div class="modal-items-sidebar">
+            <div class="modal-items-sidebar collapsed">
               <ul class="collection-items-list">
                 ${items.map((item, idx) => `
                   <li class="collection-item ${idx === currentIndex ? 'active' : ''}">
@@ -205,7 +205,7 @@ const topicSliderContainer = modal.querySelector(".topic-slider-container");
       const topicSlider = modal.querySelector(".topic-slider");
       
       let selectedIndex = currentIndex;
-      let sidebarOpen = true;
+      let sidebarOpen = false;
       
       // Modal show/hide
       const showModal = () => {
