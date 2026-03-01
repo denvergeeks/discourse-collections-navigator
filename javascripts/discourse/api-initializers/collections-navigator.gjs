@@ -360,9 +360,9 @@ topicSliderContainer.classList.remove("collapsed");
         itemLinks.forEach(link => {
           const idx = parseInt(link.getAttribute("data-index"));
           if (idx === index) {
-            link.parentElement.classList.add("active");
+            link.classList.add("active");
           } else {
-            link.parentElement.classList.remove("active");
+            link.classList.remove("active");
           }
         });
         
