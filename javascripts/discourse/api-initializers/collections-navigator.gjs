@@ -24,21 +24,21 @@ export default apiInitializer("1.24.0", (api) => {
       const collectionName = collectionTitleEl?.textContent?.trim() || "Collection";
       const collectionDesc = collectionDescEl?.textContent?.trim() || "";
       
-// Extract items from sidebar - FIXED selector
-const links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
-const items = Array.from(links).map((link) => {
-  const href = link.getAttribute("href");
-  // Try multiple selectors to get the title text
-  let title = link.querySelector(".collection-link-content-text")?.textContent?.trim();
-  if (!title) title = link.querySelector(".sidebar-section-link-content-text")?.textContent?.trim();
-  if (!title) title = link.querySelector("[class*='content-text']")?.textContent?.trim();
-  if (!title) title = link.textContent?.trim();
-  if (!title) title = "Untitled";
-  
-  const idMatch = href.match(/\/(\d+)$/);
-  const topicId = idMatch ? idMatch[1] : null;
-  return { title, href, topicId };
-});
+      // Extract items from sidebar - FIXED selector
+      const links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
+      const items = Array.from(links).map((link) => {
+        const href = link.getAttribute("href");
+        // Try multiple selectors to get the title text
+        let title = link.querySelector(".collection-link-content-text")?.textContent?.trim();
+        if (!title) title = link.querySelector(".sidebar-section-link-content-text")?.textContent?.trim();
+        if (!title) title = link.querySelector("[class*='content-text']")?.textContent?.trim();
+        if (!title) title = link.textContent?.trim();
+        if (!title) title = "Untitled";
+        
+        const idMatch = href.match(/\/(\d+)$/);
+        const topicId = idMatch ? idMatch[1] : null;
+        return { title, href, topicId };
+      });
 
       
       if (items.length < 2) return;
