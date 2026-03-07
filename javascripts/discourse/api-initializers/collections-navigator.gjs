@@ -399,7 +399,7 @@ const updateModalContent = throttle(index => {
   nextBtn.disabled = index === totalItems - 1;
   
   setTimeout(scrollSliderToActive, 100);
-}, SCROLL_THROTTLE_MS);
+}, SCROLLTHROTTLEMS);
 
       
       // Event listeners (same as before)
