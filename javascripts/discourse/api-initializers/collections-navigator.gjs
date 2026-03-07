@@ -91,29 +91,47 @@ export default apiInitializer("1.24.0", (api) => {
       }
       
       // IFRAME SUPPORT FOR EXTERNAL LINKS
-      function extractExternalLinks(htmlContent) {
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = htmlContent;
-        const links = tempDiv.querySelectorAll("a[href]");
-        const externalLinks = [];
-        
-        links.forEach(link => {
-          const href = link.getAttribute("href");
-          if (href && (href.startsWith("http://") || href.startsWith("https://"))) {
-            try {
-              const url = new URL(href);
-              if (url.hostname !== window.location.hostname) {
-                externalLinks.push({
-                  url: href,
-                  text: link.textContent?.trim() || href
-                });
-              }
-            } catch (e) {}
-          }
-        });
-        
-        return externalLinks;
+function extractExternalLinks(htmlContent) {
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = htmlContent;
+
+  const links = tempDiv.querySelectorAll("a[href]");
+  const externalLinks = [];
+
+  links.forEach((link) => {
+    const href = link.getAttribute("href");
+    if (!href) {
+      return;
+    }
+
+    // (2) Do NOT treat internal cooked-content links as iframe candidates
+    if (
+      href.startsWith("/") ||                    // relative internal
+      href.startsWith(window.location.origin) || // absolute internal
+      href.startsWith("#")                       // in-page anchors
+    ) {
+      return;
+    }
+
+    // (3) Only true externals become iframe entries
+    if (href.startsWith("http://") || href.startsWith("https://")) {
+      try {
+        const url = new URL(href);
+        if (url.hostname !== window.location.hostname) {
+          externalLinks.push({
+            url: href,
+            text: link.textContent?.trim() || href,
+          });
+        }
+      } catch (e) {
+        // ignore malformed URL
       }
+    }
+  });
+
+  return externalLinks;
+}
+
       
       function createIframeDisplay(externalLinks) {
         if (externalLinks.length === 0) return "";
@@ -353,52 +371,156 @@ function loadExternalContent(url) {
         }
       };
 
-// SIMPLIFIED CONTENT LOADING - PROPER INTERNAL vs EXTERNAL HANDLING
-const updateModalContent = throttle(index => {
-  if (index < 0 || index > totalItems) return;
+// Sidebar items: external = iframe, internal = cooked-only in modal
+const updateModalContent = throttle((index) => {
+  if (index < 0 || index >= totalItems) return;
 
   selectedIndex = index;
-  contentTitle.textContent = items[index].title;
-
   const currentItemData = items[index];
 
-  if (currentItemData.isExternalFullUrl) {
-    // External full URL - show in iframe
-    contentArea.innerHTML = loadExternalContent(currentItemData.fullDisplayUrl);
-    setupIframeHandlers(contentArea);
-  } else {
-    // Internal Discourse link - navigate to it instead of loading in modal
-    const internalPath = currentItemData.href;
+  contentTitle.textContent = currentItemData.title;
 
-    hideModal();
-    window.location.href = internalPath;
-    return;
+  if (currentItemData.isExternalFullUrl) {
+    // (3) External link in sidebar → iframe in modal
+    contentArea.innerHTML = loadExternalContent(currentItemData.fullDisplayUrl);
+  } else {
+    // (1) Internal sidebar item (collection or subcollection) → cooked-only
+    // You may later swap cookedContent for content fetched for that topic,
+    // but for now we reuse cookedContent as before.
+    contentArea.innerHTML = processContentWithIframes(cookedContent);
   }
 
+  setupIframeHandlers(contentArea);
+
+  // UI state updates (unchanged)
   pagingText.textContent = `${index + 1}/${totalItems}`;
   modalContentPrev.disabled = index === 0;
   modalContentNext.disabled = index === totalItems - 1;
 
-  sliderItems.forEach(item => {
+  sliderItems.forEach((item) => {
     const idx = parseInt(item.getAttribute("data-index"), 10);
     item.classList.toggle("active", idx === index);
   });
 
-  itemLinks.forEach(link => {
+  itemLinks.forEach((link) => {
     const idx = parseInt(link.getAttribute("data-index"), 10);
     link.classList.toggle("active", idx === index);
   });
 
   const navText = navBar.querySelector(".nav-text");
-  navText.textContent = `${collectionName} » ${items[index].title} ${index + 1}/${totalItems}`;
+  navText.textContent = `${collectionName}: ${currentItemData.title} (${index + 1}/${totalItems})`;
 
   prevBtn.disabled = index === 0;
   nextBtn.disabled = index === totalItems - 1;
 
   setTimeout(scrollSliderToActive, 100);
-}, 200); // ← use literal instead of SCROLLTHROTTLEMS
+}, SCROLL_THROTTLE_MS);
 
 
+// After you have `modal`, `contentArea`, `items`, `totalItems`, `updateModalContent` defined:
+
+// Delegated click handler for internal links INSIDE cooked content
+const cookedContentEl = modal.querySelector(".cooked-content");
+
+if (cookedContentEl) {
+  cookedContentEl.addEventListener("click", (event) => {
+    const a = event.target.closest("a[href]");
+    if (!a) {
+      return;
+    }
+
+    // Preserve modified clicks: Ctrl/⌘/Shift or middle mouse should behave normally
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||             // not left click
+      event.metaKey ||                  // ⌘ on Mac
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    const href = a.getAttribute("href");
+    if (!href) {
+      return;
+    }
+
+    const origin = window.location.origin;
+
+    // Normalize to absolute URL for comparison
+    let absoluteHref;
+    if (href.startsWith("http://") || href.startsWith("https://")) {
+      absoluteHref = href;
+    } else if (href.startsWith("/")) {
+      absoluteHref = origin + href;
+    } else if (href.startsWith("#")) {
+      // In-page anchors: let them behave as normal
+      return;
+    } else {
+      // Relative path like "t/topic/123"
+      absoluteHref = origin + "/" + href.replace(/^\.\//, "");
+    }
+
+    // Determine whether it's internal or external relative to current site
+    let url;
+    try {
+      url = new URL(absoluteHref);
+    } catch (e) {
+      // If URL can't be parsed, let browser handle it
+      return;
+    }
+
+    const isInternal =
+      url.origin === origin ||
+      url.hostname === window.location.hostname;
+
+    if (!isInternal) {
+      // External cooked-content link → allow default
+      // (it will also show up in iframe list via extractExternalLinks)
+      return;
+    }
+
+    // From here: internal cooked-content link.
+    // Try to find a matching sidebar item to show in the modal instead of full nav.
+
+    // Compare against items' href values, normalized similarly
+    const matchIndex = items.findIndex((item) => {
+      if (!item.href) {
+        return false;
+      }
+
+      let itemAbs;
+      if (item.isExternalFullUrl) {
+        // External sidebar items should not be matched here
+        return false;
+      }
+
+      if (item.href.startsWith("http://") || item.href.startsWith("https://")) {
+        itemAbs = item.href;
+      } else if (item.href.startsWith("/")) {
+        itemAbs = origin + item.href;
+      } else {
+        itemAbs = origin + "/" + item.href.replace(/^\.\//, "");
+      }
+
+      // Loose match: exact URL or URL contains item's path
+      return (
+        itemAbs === absoluteHref ||
+        absoluteHref.startsWith(itemAbs)
+      );
+    });
+
+    if (matchIndex === -1) {
+      // No corresponding sidebar item; let Discourse handle navigation
+      return;
+    }
+
+    // We have a matching item, so keep user in modal and switch content
+    event.preventDefault();
+    updateModalContent(matchIndex);
+  });
+}
       
       // Event listeners (same as before)
       toggleBtn.addEventListener("click", showModal);
