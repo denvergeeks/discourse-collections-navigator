@@ -132,6 +132,7 @@ function extractExternalLinks(htmlContent) {
   return externalLinks;
 }
 
+
       
       function createIframeDisplay(externalLinks) {
         if (externalLinks.length === 0) return "";
@@ -381,15 +382,14 @@ const updateModalContent = throttle((index) => {
   contentTitle.textContent = currentItemData.title;
 
   if (currentItemData.isExternalFullUrl) {
-    // (3) External link in sidebar → iframe in modal
+    // External sidebar item → iframe in modal
     contentArea.innerHTML = loadExternalContent(currentItemData.fullDisplayUrl);
   } else {
-    // (1) Internal sidebar item (collection or subcollection) → cooked-only
-    // You may later swap cookedContent for content fetched for that topic,
-    // but for now we reuse cookedContent as before.
+    // Internal sidebar item (collection or subcollection) → cooked-only
     contentArea.innerHTML = processContentWithIframes(cookedContent);
   }
 
+  // Run after either branch
   setupIframeHandlers(contentArea);
 
   // UI state updates (unchanged)
@@ -408,13 +408,15 @@ const updateModalContent = throttle((index) => {
   });
 
   const navText = navBar.querySelector(".nav-text");
-  navText.textContent = `${collectionName}: ${currentItemData.title} (${index + 1}/${totalItems})`;
+  navText.textContent =
+    `${collectionName}: ${currentItemData.title} (${index + 1}/${totalItems})`;
 
   prevBtn.disabled = index === 0;
   nextBtn.disabled = index === totalItems - 1;
 
   setTimeout(scrollSliderToActive, 100);
 }, SCROLL_THROTTLE_MS);
+
 
 
 // After you have `modal`, `contentArea`, `items`, `totalItems`, `updateModalContent` defined:
@@ -432,8 +434,8 @@ if (cookedContentEl) {
     // Preserve modified clicks: Ctrl/⌘/Shift or middle mouse should behave normally
     if (
       event.defaultPrevented ||
-      event.button !== 0 ||             // not left click
-      event.metaKey ||                  // ⌘ on Mac
+      event.button !== 0 || // not left click
+      event.metaKey ||      // ⌘ on Mac
       event.ctrlKey ||
       event.shiftKey ||
       event.altKey
@@ -472,8 +474,7 @@ if (cookedContentEl) {
     }
 
     const isInternal =
-      url.origin === origin ||
-      url.hostname === window.location.hostname;
+      url.origin === origin || url.hostname === window.location.hostname;
 
     if (!isInternal) {
       // External cooked-content link → allow default
@@ -483,19 +484,17 @@ if (cookedContentEl) {
 
     // From here: internal cooked-content link.
     // Try to find a matching sidebar item to show in the modal instead of full nav.
-
-    // Compare against items' href values, normalized similarly
     const matchIndex = items.findIndex((item) => {
       if (!item.href) {
         return false;
       }
 
-      let itemAbs;
       if (item.isExternalFullUrl) {
         // External sidebar items should not be matched here
         return false;
       }
 
+      let itemAbs;
       if (item.href.startsWith("http://") || item.href.startsWith("https://")) {
         itemAbs = item.href;
       } else if (item.href.startsWith("/")) {
@@ -505,10 +504,7 @@ if (cookedContentEl) {
       }
 
       // Loose match: exact URL or URL contains item's path
-      return (
-        itemAbs === absoluteHref ||
-        absoluteHref.startsWith(itemAbs)
-      );
+      return itemAbs === absoluteHref || absoluteHref.startsWith(itemAbs);
     });
 
     if (matchIndex === -1) {
@@ -521,6 +517,7 @@ if (cookedContentEl) {
     updateModalContent(matchIndex);
   });
 }
+
       
       // Event listeners (same as before)
       toggleBtn.addEventListener("click", showModal);
