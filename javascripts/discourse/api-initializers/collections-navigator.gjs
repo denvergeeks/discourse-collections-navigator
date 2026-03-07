@@ -141,36 +141,51 @@ export default apiInitializer("1.24.0", (api) => {
         return iframeHtml;
       }
       
-      function setupIframeHandlers(contentArea) {
-        const iframes = contentArea.querySelectorAll(".external-link-iframe");
-        iframes.forEach(iframe => {
-          const wrapper = iframe.closest(".iframe-wrapper");
-          const loading = wrapper.querySelector(".iframe-loading");
-          const error = wrapper.querySelector(".iframe-error");
-          
-          iframe.addEventListener("load", () => {
-            loading.style.display = "none";
-            iframe.style.display = "block";
-          });
-          
-          iframe.addEventListener("error", () => {
-            loading.style.display = "none";
-            iframe.style.display = "none";
-            error.style.display = "block";
-          });
-          
-          setTimeout(() => {
-            try {
-              iframe.contentWindow.document;
-              loading.style.display = "none";
-            } catch (e) {
-              loading.style.display = "none";
-              iframe.style.display = "none";
-              error.style.display = "block";
-            }
-          }, 5000);
-        });
+function setupIframeHandlers(contentArea) {
+  const iframes = contentArea.querySelectorAll(".external-link-iframe, .external-topic-iframe");
+  
+  iframes.forEach((iframe, index) => {
+    const wrapper = iframe.closest(".iframe-wrapper, .iframe-container") || iframe.parentElement;
+    const loading = wrapper.querySelector(".iframe-loading");
+    const error = wrapper.querySelector(".iframe-error");
+    
+    if (!loading) return;
+    
+    // Hide loading and show iframe on successful load
+    const onIframeLoad = () => {
+      console.log(`Iframe ${index} loaded successfully`);
+      loading.style.display = "none";
+      iframe.style.display = "block";
+      iframe.style.height = "600px"; // Set explicit height
+    };
+    
+    // Hide everything and show error on load error
+    const onIframeError = () => {
+      console.log(`Iframe ${index} failed to load`);
+      loading.style.display = "none";
+      iframe.style.display = "none";
+      if (error) error.style.display = "block";
+    };
+    
+    // Attach events
+    iframe.addEventListener("load", onIframeLoad);
+    iframe.addEventListener("error", onIframeError);
+    
+    // Additional timeout check (some sites block iframes silently)
+    setTimeout(() => {
+      if (loading.style.display !== "none") {
+        try {
+          // Test if iframe content is accessible
+          iframe.contentDocument || iframe.contentWindow.document;
+          onIframeLoad();
+        } catch (e) {
+          console.log(`Iframe ${index} blocked by CORS/X-Frame-Options`);
+          onIframeError();
+        }
       }
+    }, 3000); // Reduced timeout for better UX
+  });
+}
       
       function processContentWithIframes(htmlContent) {
         const externalLinks = extractExternalLinks(htmlContent);
@@ -178,23 +193,24 @@ export default apiInitializer("1.24.0", (api) => {
         return iframeDisplay ? htmlContent + iframeDisplay : htmlContent;
       }
       
-      function loadExternalContent(url) {
-        // For external full URLs, just show the URL in an iframe + fallback
-        return `
-          <div class="external-url-content">
-            <div class="external-url-header">
-              <h4>External Link: ${url}</h4>
-              <a href="${url}" target="_blank" class="btn btn-primary">Open in New Tab</a>
-            </div>
-            <div class="iframe-loading">Loading external site...</div>
-            <iframe src="${url}" class="external-topic-iframe" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" loading="lazy" title="${url}"></iframe>
-            <div class="iframe-error" style="display: none;">
-              <p>This site cannot be displayed in an iframe (X-Frame-Options restriction).</p>
-              <a href="${url}" target="_blank" class="btn btn-primary">Open in New Tab</a>
-            </div>
-          </div>
-        `;
-      }
+function loadExternalContent(url) {
+  return `
+    <div class="external-url-content">
+      <div class="external-url-header">
+        <h4>External Link: <a href="${url}" target="_blank">${url}</a></h4>
+        <a href="${url}" target="_blank" class="btn btn-primary">Open in New Tab</a>
+      </div>
+      <div class="iframe-container">
+        <div class="iframe-loading">Loading external site...</div>
+        <iframe src="${url}" class="external-topic-iframe" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation" loading="lazy" title="${url}" style="display: none;"></iframe>
+        <div class="iframe-error" style="display: none;">
+          <p>This site cannot be displayed in an iframe (likely due to X-Frame-Options security policy).</p>
+          <a href="${url}" target="_blank" class="btn btn-primary">Open in New Tab</a>
+        </div>
+      </div>
+    </div>
+  `;
+}
       
       // CREATE NAVIGATION BAR
       const navBar = document.createElement("div");
