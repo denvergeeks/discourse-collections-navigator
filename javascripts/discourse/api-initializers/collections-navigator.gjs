@@ -1,6 +1,7 @@
 // Collections Navigation - Modal with Discourse patterns integrated
 // Restores: sidebar, topic slider, paging buttons, title/description
 // Adds: Discourse carousel patterns for accessibility and performance
+// NEW: iframe support for external links in modal content area
 
 import { apiInitializer } from "discourse/lib/api";
 
@@ -90,6 +91,120 @@ export default apiInitializer("1.24.0", (api) => {
       }
       
       // ================================================================
+      // IFRAME SUPPORT FOR EXTERNAL LINKS
+      // ================================================================
+      
+      function extractExternalLinks(htmlContent) {
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = htmlContent;
+        const links = tempDiv.querySelectorAll("a[href]");
+        const externalLinks = [];
+        
+        links.forEach(link => {
+          const href = link.getAttribute("href");
+          // Check if it's an external link (starts with http/https and not same domain)
+          if (href && (href.startsWith("http://") || href.startsWith("https://"))) {
+            try {
+              const url = new URL(href);
+              if (url.hostname !== window.location.hostname) {
+                externalLinks.push({
+                  url: href,
+                  text: link.textContent?.trim() || href
+                });
+              }
+            } catch (e) {
+              // Invalid URL, skip
+            }
+          }
+        });
+        
+        return externalLinks;
+      }
+      
+      function createIframeDisplay(externalLinks) {
+        if (externalLinks.length === 0) {
+          return "";
+        }
+        
+        let iframeHtml = `<div class="external-links-iframe-container">`;
+        
+        externalLinks.forEach((link, index) => {
+          iframeHtml += `
+            <div class="iframe-wrapper" data-iframe-index="${index}">
+              <div class="iframe-header">
+                <span class="iframe-title">${link.text}</span>
+                <a href="${link.url}" target="_blank" class="iframe-open-new" title="Open in new tab">
+                  <svg class="fa d-icon d-icon-external-link-alt svg-icon svg-string" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" aria-hidden="true"><use href="#external-link-alt"></use></svg>
+                </a>
+              </div>
+              <div class="iframe-loading">Loading external content...</div>
+              <iframe 
+                src="${link.url}" 
+                class="external-link-iframe"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                loading="lazy"
+                title="${link.text}"
+              ></iframe>
+              <div class="iframe-error" style="display: none;">
+                <p>Unable to display this content in an iframe.</p>
+                <a href="${link.url}" target="_blank" class="btn btn-primary">Open in New Tab</a>
+              </div>
+            </div>
+          `;
+        });
+        
+        iframeHtml += `</div>`;
+        return iframeHtml;
+      }
+      
+      function setupIframeHandlers(contentArea) {
+        const iframes = contentArea.querySelectorAll(".external-link-iframe");
+        
+        iframes.forEach(iframe => {
+          const wrapper = iframe.closest(".iframe-wrapper");
+          const loading = wrapper.querySelector(".iframe-loading");
+          const error = wrapper.querySelector(".iframe-error");
+          
+          // Handle successful load
+          iframe.addEventListener("load", () => {
+            loading.style.display = "none";
+            iframe.style.display = "block";
+          });
+          
+          // Handle errors (CORS, X-Frame-Options, etc.)
+          iframe.addEventListener("error", () => {
+            loading.style.display = "none";
+            iframe.style.display = "none";
+            error.style.display = "block";
+          });
+          
+          // Timeout fallback (some sites silently block iframes)
+          setTimeout(() => {
+            try {
+              // Try to access iframe content to check if it loaded
+              iframe.contentWindow.document;
+              loading.style.display = "none";
+            } catch (e) {
+              // CORS error - iframe blocked
+              loading.style.display = "none";
+              iframe.style.display = "none";
+              error.style.display = "block";
+            }
+          }, 5000);
+        });
+      }
+      
+      function processContentWithIframes(htmlContent) {
+        const externalLinks = extractExternalLinks(htmlContent);
+        const iframeDisplay = createIframeDisplay(externalLinks);
+        
+        if (iframeDisplay) {
+          return htmlContent + iframeDisplay;
+        }
+        return htmlContent;
+      }
+      
+      // ================================================================
       // CREATE NAVIGATION BAR (Top of page)
       // ================================================================
       
@@ -164,7 +279,7 @@ export default apiInitializer("1.24.0", (api) => {
                 <h3 class="content-title">${currentItem.title}</h3>
               </div>
               <div class="cooked-content">
-                ${cookedContent}
+                ${processContentWithIframes(cookedContent)}
               </div>
             </div>
           </div>
@@ -187,6 +302,10 @@ export default apiInitializer("1.24.0", (api) => {
       
       document.body.appendChild(modal);
       
+      // Setup iframe handlers for initial content
+      const contentArea = modal.querySelector(".cooked-content");
+      setupIframeHandlers(contentArea);
+      
       // Get all elements
       const toggleBtn = navBar.querySelector(".collections-nav-toggle");
       const prevBtn = navBar.querySelector(".collections-nav-prev");
@@ -194,7 +313,6 @@ export default apiInitializer("1.24.0", (api) => {
       const closeBtn = modal.querySelector(".modal-close-btn");
       const itemLinks = modal.querySelectorAll(".collection-item-link");
       const sliderItems = modal.querySelectorAll(".slider-item");
-      const contentArea = modal.querySelector(".cooked-content");
       const contentTitle = modal.querySelector(".content-title");
       const sidebarToggle = modal.querySelector(".modal-sidebar-toggle");
       const sidebar = modal.querySelector(".modal-items-sidebar");
@@ -290,7 +408,8 @@ topicSliderContainer.classList.remove("collapsed");
                     if (data.post_stream && data.post_stream.posts && data.post_stream.posts[0]) {
                       const cooked = data.post_stream.posts[0].cooked;
                       if (cooked) {
-                        contentArea.innerHTML = cooked;
+                        contentArea.innerHTML = processContentWithIframes(cooked);
+                        setupIframeHandlers(contentArea);
                       }
                     }
                   }
@@ -340,7 +459,8 @@ topicSliderContainer.classList.remove("collapsed");
               if (data.post_stream && data.post_stream.posts && data.post_stream.posts[0]) {
                 const cooked = data.post_stream.posts[0].cooked;
                 if (cooked) {
-                  contentArea.innerHTML = cooked;
+                  contentArea.innerHTML = processContentWithIframes(cooked);
+                  setupIframeHandlers(contentArea);
                 } else {
                   contentArea.innerHTML = "<p>No cooked content found</p>";
                 }
