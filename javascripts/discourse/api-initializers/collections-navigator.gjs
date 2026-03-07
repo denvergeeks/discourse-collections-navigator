@@ -353,49 +353,54 @@ function loadExternalContent(url) {
         }
       };
 
-      // SIMPLIFIED CONTENT LOADING - NO API CALLS FOR EXTERNAL URLS
-      const updateModalContent = throttle((index) => {
-        if (index < 0 || index >= totalItems) return;
-        
-        selectedIndex = index;
-        contentTitle.textContent = items[index].title;
-        
-        if (items[index].isExternalFullUrl) {
-          // External full URL - show in iframe
-          contentArea.innerHTML = loadExternalContent(items[index].fullDisplayUrl);
-          setupIframeHandlers(contentArea);
-        } else {
-          // Internal topic - try to load content
-          contentArea.innerHTML = "<p>Loading...</p>";
-          // For internal topics, you'd fetch from current domain API
-          // but skip API call for now to focus on external URL fix
-          contentArea.innerHTML = processContentWithIframes(cookedContent);
-          setupIframeHandlers(contentArea);
-        }
-        
-        // Update UI states
-        pagingText.textContent = `${index + 1}/${totalItems}`;
-        modalContentPrev.disabled = (index === 0);
-        modalContentNext.disabled = (index === totalItems - 1);
-        
-        sliderItems.forEach(item => {
-          const idx = parseInt(item.getAttribute("data-index"));
-          item.classList.toggle("active", idx === index);
-        });
-        
-        itemLinks.forEach(link => {
-          const idx = parseInt(link.getAttribute("data-index"));
-          link.classList.toggle("active", idx === index);
-        });
-        
-        const navText = navBar.querySelector(".nav-text");
-        navText.textContent = `${collectionName}: ${items[index].title} (${index + 1}/${totalItems})`;
-        
-        prevBtn.disabled = (index === 0);
-        nextBtn.disabled = (index === totalItems - 1);
-        
-        setTimeout(scrollSliderToActive, 100);
-      }, SCROLL_THROTTLE_MS);
+// SIMPLIFIED CONTENT LOADING - PROPER INTERNAL vs EXTERNAL HANDLING
+const updateModalContent = throttle(index => {
+  if (index < 0 || index > totalItems) return;
+  
+  selectedIndex = index;
+  contentTitle.textContent = items[index].title;
+  
+  const currentItemData = items[index];
+  
+  // Check if this is an external full URL
+  if (currentItemData.isExternalFullUrl) {
+    // External full URL - show in iframe
+    contentArea.innerHTML = loadExternalContent(currentItemData.fullDisplayUrl);
+    setupIframeHandlers(contentArea);
+  } else {
+    // Internal Discourse link - navigate to it instead of loading in modal
+    const internalPath = currentItemData.href;
+    
+    // Close modal and navigate
+    hideModal();
+    window.location.href = internalPath;
+    return; // Exit - navigation takes over
+  }
+  
+  // Update UI states (only for external URLs since internal navigates away)
+  pagingText.textContent = `${index + 1}/${totalItems}`;
+  modalContentPrev.disabled = index === 0;
+  modalContentNext.disabled = index === totalItems - 1;
+  
+  sliderItems.forEach(item => {
+    const idx = parseInt(item.getAttribute('data-index'));
+    item.classList.toggle('active', idx === index);
+  });
+  
+  itemLinks.forEach(link => {
+    const idx = parseInt(link.getAttribute('data-index'));
+    link.classList.toggle('active', idx === index);
+  });
+  
+  const navText = navBar.querySelector('.nav-text');
+  navText.textContent = `${collectionName} » ${items[index].title} ${index + 1}/${totalItems}`;
+  
+  prevBtn.disabled = index === 0;
+  nextBtn.disabled = index === totalItems - 1;
+  
+  setTimeout(scrollSliderToActive, 100);
+}, SCROLLTHROTTLEMS);
+
       
       // Event listeners (same as before)
       toggleBtn.addEventListener("click", showModal);
