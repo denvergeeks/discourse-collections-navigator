@@ -356,13 +356,12 @@ function loadExternalContent(url) {
 // SIMPLIFIED CONTENT LOADING - PROPER INTERNAL vs EXTERNAL HANDLING
 const updateModalContent = throttle(index => {
   if (index < 0 || index > totalItems) return;
-  
+
   selectedIndex = index;
   contentTitle.textContent = items[index].title;
-  
+
   const currentItemData = items[index];
-  
-  // Check if this is an external full URL
+
   if (currentItemData.isExternalFullUrl) {
     // External full URL - show in iframe
     contentArea.innerHTML = loadExternalContent(currentItemData.fullDisplayUrl);
@@ -370,36 +369,35 @@ const updateModalContent = throttle(index => {
   } else {
     // Internal Discourse link - navigate to it instead of loading in modal
     const internalPath = currentItemData.href;
-    
-    // Close modal and navigate
+
     hideModal();
     window.location.href = internalPath;
-    return; // Exit - navigation takes over
+    return;
   }
-  
-  // Update UI states (only for external URLs since internal navigates away)
+
   pagingText.textContent = `${index + 1}/${totalItems}`;
   modalContentPrev.disabled = index === 0;
   modalContentNext.disabled = index === totalItems - 1;
-  
+
   sliderItems.forEach(item => {
-    const idx = parseInt(item.getAttribute('data-index'));
-    item.classList.toggle('active', idx === index);
+    const idx = parseInt(item.getAttribute("data-index"), 10);
+    item.classList.toggle("active", idx === index);
   });
-  
+
   itemLinks.forEach(link => {
-    const idx = parseInt(link.getAttribute('data-index'));
-    link.classList.toggle('active', idx === index);
+    const idx = parseInt(link.getAttribute("data-index"), 10);
+    link.classList.toggle("active", idx === index);
   });
-  
-  const navText = navBar.querySelector('.nav-text');
+
+  const navText = navBar.querySelector(".nav-text");
   navText.textContent = `${collectionName} » ${items[index].title} ${index + 1}/${totalItems}`;
-  
+
   prevBtn.disabled = index === 0;
   nextBtn.disabled = index === totalItems - 1;
-  
+
   setTimeout(scrollSliderToActive, 100);
-}, SCROLLTHROTTLEMS);
+}, 200); // ← use literal instead of SCROLLTHROTTLEMS
+
 
       
       // Event listeners (same as before)
