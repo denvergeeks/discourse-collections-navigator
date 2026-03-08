@@ -2,6 +2,7 @@
 // Restores: sidebar, topic slider, paging buttons, title/description
 // Adds: Discourse carousel patterns for accessibility and performance
 // NEW: iframe support for external links in modal content area
+// FIXED: External Discourse URL handling for cross-domain collections
 
 import { apiInitializer } from "discourse/lib/api";
 
@@ -25,10 +26,48 @@ export default apiInitializer("1.24.0", (api) => {
       const collectionName = collectionTitleEl?.textContent?.trim() || "Collection";
       const collectionDesc = collectionDescEl?.textContent?.trim() || "";
       
-      // Extract items from sidebar - FIXED selector
+      // ================================================================
+      // URL PARSING HELPERS FOR EXTERNAL DISCOURSE LINKS
+      // ================================================================
+      
+      function parseDiscourseUrl(href) {
+        try {
+          // Check if it's a full URL
+          if (href.startsWith('http://') || href.startsWith('https://')) {
+            const url = new URL(href);
+            // Extract topic ID from URL path
+            const pathMatch = url.pathname.match(/\/t\/[^\/]+\/(\d+)/);
+            if (pathMatch) {
+              return {
+                fullUrl: href,
+                baseUrl: `${url.protocol}//${url.host}`,
+                topicId: pathMatch[1],
+                isExternal: url.hostname !== window.location.hostname
+              };
+            }
+          } else {
+            // Relative URL - extract topic ID
+            const idMatch = href.match(/\/(\d+)$/);
+            if (idMatch) {
+              return {
+                fullUrl: href,
+                baseUrl: window.location.origin,
+                topicId: idMatch[1],
+                isExternal: false
+              };
+            }
+          }
+        } catch (e) {
+          console.error("Error parsing URL:", href, e);
+        }
+        return null;
+      }
+      
+      // Extract items from sidebar - ENHANCED with URL parsing
       const links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
       const items = Array.from(links).map((link) => {
         const href = link.getAttribute("href");
+        
         // Try multiple selectors to get the title text
         let title = link.querySelector(".collection-link-content-text")?.textContent?.trim();
         if (!title) title = link.querySelector(".sidebar-section-link-content-text")?.textContent?.trim();
@@ -36,17 +75,32 @@ export default apiInitializer("1.24.0", (api) => {
         if (!title) title = link.textContent?.trim();
         if (!title) title = "Untitled";
         
-        const idMatch = href.match(/\/(\d+)$/);
-        const topicId = idMatch ? idMatch[1] : null;
-        return { title, href, topicId };
+        const urlInfo = parseDiscourseUrl(href);
+        
+        return { 
+          title, 
+          href, 
+          topicId: urlInfo?.topicId || null,
+          baseUrl: urlInfo?.baseUrl || window.location.origin,
+          isExternal: urlInfo?.isExternal || false
+        };
       });
 
       
       if (items.length < 2) return;
       
-      // Find current item
-      const currentUrl = window.location.pathname;
-      const currentIndex = items.findIndex(item => currentUrl.includes(item.href.split("/")[2]));
+      // Find current item - improved matching
+      const currentUrl = window.location.href;
+      const currentPathname = window.location.pathname;
+      const currentIndex = items.findIndex(item => {
+        // Try full URL match first
+        if (item.href === currentUrl) return true;
+        // Try pathname match
+        if (currentPathname.includes(item.topicId)) return true;
+        // Try href contains check
+        if (item.href && currentUrl.includes(item.href)) return true;
+        return false;
+      });
       
       if (currentIndex === -1) return;
       
@@ -376,15 +430,11 @@ topicSliderContainer.classList.remove("collapsed");
         prevBtn.disabled = (index === 0);
         nextBtn.disabled = (index === totalItems - 1);
 
-
-
-
-
-
-        
-        // Fetch new topic content via API
+        // Fetch new topic content via API - USE CORRECT DOMAIN
         if (items[index].topicId) {
-          fetch(`/t/${items[index].topicId}.json`)
+          const apiUrl = `${items[index].baseUrl}/t/${items[index].topicId}.json`;
+          
+          fetch(apiUrl)
             .then(response => response.json())
             .then(data => {
               // Update page title
@@ -405,18 +455,13 @@ topicSliderContainer.classList.remove("collapsed");
                     
                     // Also update modal content
                     contentTitle.textContent = items[index].title;
-                    if (data.post_stream && data.post_stream.posts && data.post_stream.posts[0]) {
-                      const cooked = data.post_stream.posts[0].cooked;
-                      if (cooked) {
-                        contentArea.innerHTML = processContentWithIframes(cooked);
-                        setupIframeHandlers(contentArea);
-                      }
-                    }
+                    contentArea.innerHTML = processContentWithIframes(cooked);
+                    setupIframeHandlers(contentArea);
                   }
                 }
               }
             })
-            .catch(err => console.error("Error updating content", err));
+            .catch(err => console.error("Error updating content from", apiUrl, err));
         }
       };
       
@@ -450,9 +495,11 @@ topicSliderContainer.classList.remove("collapsed");
         // Scroll slider to active item
         setTimeout(scrollSliderToActive, 100);
         
-        // Use Discourse API to fetch the topic
+        // Use Discourse API to fetch the topic - USE CORRECT DOMAIN
         if (items[index].topicId) {
-          fetch(`/t/${items[index].topicId}.json`)
+          const apiUrl = `${items[index].baseUrl}/t/${items[index].topicId}.json`;
+          
+          fetch(apiUrl)
             .then(response => response.json())
             .then(data => {
               // Get the first post's cooked content
@@ -469,8 +516,8 @@ topicSliderContainer.classList.remove("collapsed");
               }
             })
             .catch(err => {
-              contentArea.innerHTML = "<p>Error loading content</p>";
-              console.error("API error", err);
+              contentArea.innerHTML = `<p>Error loading content from ${items[index].isExternal ? 'external site' : 'server'}</p>`;
+              console.error("API error from", apiUrl, err);
             });
         } else {
           contentArea.innerHTML = "<p>Could not determine topic ID</p>";
