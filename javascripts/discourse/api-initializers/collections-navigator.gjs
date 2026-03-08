@@ -3,12 +3,14 @@
 // Adds: Discourse carousel patterns for accessibility and performance
 // ADDED: iframe support for external links
 
-import { apiInitializer } from "discourse/lib/api";
+import {
+  apiInitializer
+} from "discourse/lib/api";
 
 export default apiInitializer("1.24.0", (api) => {
   api.onPageChange(() => {
 
-let links, items, currentIndex, currentItem, totalItems;
+    let links, items, currentIndex, currentItem, totalItems;
 
     setTimeout(() => {
       const sidebarPanel = document.querySelector(".discourse-collections-sidebar-panel");
@@ -18,7 +20,7 @@ let links, items, currentIndex, currentItem, totalItems;
         return;
       }
 
-  links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
+      links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
 
       // Remove old nav if exists
       document.querySelectorAll(".collections-nav-injected").forEach(el => el.remove());
@@ -48,24 +50,29 @@ let links, items, currentIndex, currentItem, totalItems;
         return false;
       };
 
-// Extract items from sidebar - FIXED regex
-const items = Array.from(links).map((link) => {
-  const href = link.getAttribute("href");
-  
-  let title = link.querySelector(".collection-link-content-text")?.textContent?.trim();
-  if (!title) title = link.querySelector(".sidebar-section-link-content-text")?.textContent?.trim();
-  if (!title) title = link.querySelector("[class*='content-text']")?.textContent?.trim();
-  if (!title) title = link.textContent?.trim();
-  if (!title) title = "Untitled";
+      // Extract items from sidebar - FIXED regex
+      const items = Array.from(links).map((link) => {
+        const href = link.getAttribute("href");
 
-  const external = isExternalUrl(href);
-  
-  // ✅ FIXED REGEX
-  const idMatch = href.match(/\/(\d+)$/);
-  const topicId = !external && idMatch ? idMatch[1] : null;
+        let title = link.querySelector(".collection-link-content-text")?.textContent?.trim();
+        if (!title) title = link.querySelector(".sidebar-section-link-content-text")?.textContent?.trim();
+        if (!title) title = link.querySelector("[class*='content-text']")?.textContent?.trim();
+        if (!title) title = link.textContent?.trim();
+        if (!title) title = "Untitled";
 
-  return { title, href, topicId, external };
-});
+        const external = isExternalUrl(href);
+
+        // ✅ FIXED REGEX
+        const idMatch = href.match(/\/(\d+)$/);
+        const topicId = !external && idMatch ? idMatch[1] : null;
+
+        return {
+          title,
+          href,
+          topicId,
+          external
+        };
+      });
 
 
       if (items.length < 2) return;
@@ -103,9 +110,9 @@ const items = Array.from(links).map((link) => {
 
       // Pattern #2: Scroll behavior with reduced-motion support
       function getScrollBehavior() {
-        return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
-          ? "auto"
-          : "smooth";
+        return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?
+          "auto" :
+          "smooth";
       }
 
       // Pattern #5: Throttle helper
@@ -278,13 +285,13 @@ const items = Array.from(links).map((link) => {
       // Update page content (navigates to new URL) - only for internal links
       const updatePageContent = (index) => {
         if (index < 0 || index >= totalItems) return;
-        
+
         // Skip navigation for external links
         if (items[index].external) {
           console.log("Cannot navigate to external link in page view");
           return;
         }
-        
+
         selectedIndex = index;
 
         // Update nav bar
@@ -333,71 +340,71 @@ const items = Array.from(links).map((link) => {
       };
 
       // Update modal content (stays in modal) - ENHANCED for external links
-// Update modal content (stays in modal) - ENHANCED for iframe-only scrolling
-// Update modal content - FIXED scope & logic
-const updateModalContent = throttle((index) => {
-  if (index < 0 || index >= totalItems) return;
+      // Update modal content (stays in modal) - ENHANCED for iframe-only scrolling
+      // Update modal content - FIXED scope & logic
+      const updateModalContent = throttle((index) => {
+        if (index < 0 || index >= totalItems) return;
 
-  selectedIndex = index;
-  contentTitle.textContent = items[index].title;
-  contentHeaderActions.innerHTML = "";
+        selectedIndex = index;
+        contentTitle.textContent = items[index].title;
+        contentHeaderActions.innerHTML = "";
 
-  // UI Updates
-  pagingText.textContent = `${index + 1}/${totalItems}`;
-  modalContentPrev.disabled = index === 0;
-  modalContentNext.disabled = index === totalItems - 1;
+        // UI Updates
+        pagingText.textContent = `${index + 1}/${totalItems}`;
+        modalContentPrev.disabled = index === 0;
+        modalContentNext.disabled = index === totalItems - 1;
 
-  // Active states
-  sliderItems.forEach((item, idx) => item.classList.toggle("active", idx === index));
-  itemLinks.forEach((link, idx) => link.classList.toggle("active", idx === index));
+        // Active states
+        sliderItems.forEach((item, idx) => item.classList.toggle("active", idx === index));
+        itemLinks.forEach((link, idx) => link.classList.toggle("active", idx === index));
 
-  setTimeout(scrollSliderToActive, 100);
+        setTimeout(scrollSliderToActive, 100);
 
-  if (items[index].external) {
-    // EXTERNAL: Iframe mode
-    modal.classList.add("external-url-active");
-    contentArea.classList.add("external-url-content-wrapper");
-    contentArea.innerHTML = loadExternalContent(items[index].href);
-    setupIframeHandlers(contentArea);
-    
-    contentHeaderActions.innerHTML = `
+        if (items[index].external) {
+          // EXTERNAL: Iframe mode
+          modal.classList.add("external-url-active");
+          contentArea.classList.add("external-url-content-wrapper");
+          contentArea.innerHTML = loadExternalContent(items[index].href);
+          setupIframeHandlers(contentArea);
+
+          contentHeaderActions.innerHTML = `
       <a href="${items[index].href}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
         <svg class="fa d-icon d-icon-external-link-alt svg-icon" aria-hidden="true"><use href="#external-link-alt"></use></svg>
         Open in New Tab
       </a>
     `;
-  } else {
-    // INTERNAL: Topic mode
-    modal.classList.remove("external-url-active");
-    contentArea.classList.remove("external-url-content-wrapper");
-    contentArea.innerHTML = "<p>Loading...</p>";
-    
-    if (items[index].topicId) {
-      fetch(`/t/${items[index].topicId}.json`)
-        .then(r => r.json())
-        .then(data => {
-          const cooked = data.post_stream?.posts?.[0]?.cooked;
-          contentArea.innerHTML = cooked || "<p>No content</p>";
-        })
-        .catch(() => contentArea.innerHTML = "<p>Error loading</p>");
-    }
-  }
+        } else {
+          // INTERNAL: Topic mode
+          modal.classList.remove("external-url-active");
+          contentArea.classList.remove("external-url-content-wrapper");
+          contentArea.innerHTML = "<p>Loading...</p>";
 
-  // Navbar update
-  const navText = navBar.querySelector(".nav-text");
-  navText.textContent = `${collectionName}: ${items[index].title} (${index + 1}/${totalItems})`;
-  prevBtn.disabled = index === 0;
-  nextBtn.disabled = index === totalItems - 1;
+          if (items[index].topicId) {
+            fetch(`/t/${items[index].topicId}.json`)
+              .then(r => r.json())
+              .then(data => {
+                const cooked = data.post_stream?.posts?.[0]?.cooked;
+                contentArea.innerHTML = cooked || "<p>No content</p>";
+              })
+              .catch(() => contentArea.innerHTML = "<p>Error loading</p>");
+          }
+        }
 
-}, SCROLL_THROTTLE_MS);
+        // Navbar update
+        const navText = navBar.querySelector(".nav-text");
+        navText.textContent = `${collectionName}: ${items[index].title} (${index + 1}/${totalItems})`;
+        prevBtn.disabled = index === 0;
+        nextBtn.disabled = index === totalItems - 1;
+
+      }, SCROLL_THROTTLE_MS);
 
 
-// ================================================================
-// HELPER FUNCTIONS for iframe handling
-// ================================================================
+      // ================================================================
+      // HELPER FUNCTIONS for iframe handling
+      // ================================================================
 
-const loadExternalContent = (url) => {
-  return `
+      const loadExternalContent = (url) => {
+        return `
     <div class="external-url-content">
       <div class="external-url-header">
         <h4>
@@ -417,54 +424,54 @@ const loadExternalContent = (url) => {
           title="External content: ${url}"
 
         ></iframe>
-//        <div class="iframe-error">
-//          <p>⚠️ This content cannot be displayed in an iframe</p>
-//          <p>Site security settings (CSP/X-Frame-Options) prevent embedding</p>
-//          <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
-//            Open in New Tab →
-//          </a>
-//        </div>
+        <div class="iframe-error">
+          <p>⚠️ This content cannot be displayed in an iframe</p>
+          <p>Site security settings (CSP/X-Frame-Options) prevent embedding</p>
+          <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
+            Open in New Tab →
+          </a>
+        </div>
       </div>
     </div>
   `;
-};
+      };
 
 
-const processContentWithIframes = (cookedContent) => {
-  // Process Discourse cooked content to ensure any embedded iframes are properly sandboxed
-  return cookedContent;
-};
+      const processContentWithIframes = (cookedContent) => {
+        // Process Discourse cooked content to ensure any embedded iframes are properly sandboxed
+        return cookedContent;
+      };
 
-const setupIframeHandlers = (container) => {
-  const iframe = container.querySelector(".external-topic-iframe");
-  const loadingDiv = container.querySelector(".iframe-loading");
-  const errorDiv = container.querySelector(".iframe-error");
+      const setupIframeHandlers = (container) => {
+        const iframe = container.querySelector(".external-topic-iframe");
+        const loadingDiv = container.querySelector(".iframe-loading");
+        const errorDiv = container.querySelector(".iframe-error");
 
-  if (iframe) {
-    iframe.addEventListener("load", () => {
-      if (loadingDiv) loadingDiv.style.display = "none";
-    });
-    
-    iframe.addEventListener("error", () => {
-      if (loadingDiv) loadingDiv.style.display = "none";
-      if (errorDiv) errorDiv.style.display = "flex";
-      iframe.style.display = "none";
-    });
-    
-    // Timeout fallback for sites that silently block iframes
-    setTimeout(() => {
-      if (loadingDiv && loadingDiv.style.display !== "none") {
-        try {
-          iframe.contentWindow.location.href;
-        } catch (e) {
-          loadingDiv.style.display = "none";
-          errorDiv.style.display = "flex";
-          iframe.style.display = "none";
+        if (iframe) {
+          iframe.addEventListener("load", () => {
+            if (loadingDiv) loadingDiv.style.display = "none";
+          });
+
+          iframe.addEventListener("error", () => {
+            if (loadingDiv) loadingDiv.style.display = "none";
+            if (errorDiv) errorDiv.style.display = "flex";
+            iframe.style.display = "none";
+          });
+
+          // Timeout fallback for sites that silently block iframes
+          setTimeout(() => {
+            if (loadingDiv && loadingDiv.style.display !== "none") {
+              try {
+                iframe.contentWindow.location.href;
+              } catch (e) {
+                loadingDiv.style.display = "none";
+                errorDiv.style.display = "flex";
+                iframe.style.display = "none";
+              }
+            }
+          }, 5000);
         }
-      }
-    }, 5000);
-  }
-};
+      };
 
 
       // ================================================================
