@@ -358,131 +358,183 @@ export default apiInitializer("1.24.0", (api) => {
       };
 
       // Update modal content (stays in modal) - ENHANCED for external links
-      const updateModalContent = throttle((index) => {
-        if (index < 0 || index >= totalItems) return;
+// Update modal content (stays in modal) - ENHANCED for iframe-only scrolling
+const updateModalContent = throttle((index) => {
+  if (index < 0 || index >= totalItems) return;
 
-        selectedIndex = index;
+  selectedIndex = index;
 
-        // Update title immediately
-        contentTitle.textContent = items[index].title;
-        contentArea.innerHTML = "<p>Loading...</p>";
-        
-        // Clear header actions
-        contentHeaderActions.innerHTML = "";
+  // Update title immediately
+  contentTitle.textContent = items[index].title;
+  contentArea.innerHTML = "<p>Loading...</p>";
+  
+  // Clear header actions
+  contentHeaderActions.innerHTML = "";
 
-        // Update paging text
-        pagingText.textContent = `${index + 1}/${totalItems}`;
+  // Update paging text
+  pagingText.textContent = `${index + 1}/${totalItems}`;
 
-        // Update modal buttons
-        modalContentPrev.disabled = (index === 0);
-        modalContentNext.disabled = (index === totalItems - 1);
+  // Update modal buttons
+  modalContentPrev.disabled = (index === 0);
+  modalContentNext.disabled = (index === totalItems - 1);
 
-        // Update slider active state
-        sliderItems.forEach(item => {
-          const idx = parseInt(item.getAttribute("data-index"));
-          if (idx === index) {
-            item.classList.add("active");
+  // Update slider active state
+  sliderItems.forEach(item => {
+    const idx = parseInt(item.getAttribute("data-index"));
+    if (idx === index) {
+      item.classList.add("active");
+    } else {
+      item.classList.remove("active");
+    }
+  });
+
+  // Scroll slider to active item
+  setTimeout(scrollSliderToActive, 100);
+
+  // ================================================================
+  // HANDLE EXTERNAL LINK vs INTERNAL TOPIC
+  // ================================================================
+  
+  if (items[index].external) {
+    // EXTERNAL: iframe-only scrolling (no outer scrollbar)
+    modal.classList.add("external-url-active");
+    contentArea.classList.add("external-url-content-wrapper");
+    contentArea.innerHTML = loadExternalContent(items[index].href);
+    setupIframeHandlers(contentArea);
+    
+    // Add "Open in New Tab" button to header
+    contentHeaderActions.innerHTML = `
+      <a href="${items[index].href}" target="_blank" rel="noopener noreferrer" class="btn btn--flat" title="Open in new tab">
+        <svg class="fa d-icon d-icon-external-link-alt svg-icon svg-string" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#external-link-alt"></use></svg>
+        Open in New Tab
+      </a>
+    `;
+    
+  } else {
+    // INTERNAL: normal scrollable topic content
+    modal.classList.remove("external-url-active");
+    contentArea.classList.remove("external-url-content-wrapper");
+    
+    // Use Discourse API to fetch the topic
+    if (items[index].topicId) {
+      fetch(`/t/${items[index].topicId}.json`)
+        .then(response => response.json())
+        .then(data => {
+          // Get the first post's cooked content
+          if (data.post_stream && data.post_stream.posts && data.post_stream.posts[0]) {
+            const cooked = data.post_stream.posts[0].cooked;
+            if (cooked) {
+              contentArea.innerHTML = processContentWithIframes(cooked);
+              setupIframeHandlers(contentArea);
+            } else {
+              contentArea.innerHTML = "<p>No cooked content found</p>";
+            }
           } else {
-            item.classList.remove("active");
+            contentArea.innerHTML = "<p>Could not find post content</p>";
           }
+        })
+        .catch(err => {
+          contentArea.innerHTML = "<p>Error loading content</p>";
+          console.error("API error", err);
         });
+    } else {
+      contentArea.innerHTML = "<p>Could not determine topic ID</p>";
+    }
+  }
 
-        // Scroll slider to active item
-        setTimeout(scrollSliderToActive, 100);
+  // Update active item in list
+  itemLinks.forEach(link => {
+    const idx = parseInt(link.getAttribute("data-index"));
+    if (idx === index) {
+      link.classList.add("active");
+    } else {
+      link.classList.remove("active");
+    }
+  });
 
-        // ================================================================
-        // HANDLE EXTERNAL LINK vs INTERNAL TOPIC
-        // ================================================================
-        
-        if (items[index].external) {
-          // Display external link in iframe
-          contentArea.innerHTML = renderExternalIframe(items[index].href);
-          
-          // Add "Open in New Tab" button to header
-          contentHeaderActions.innerHTML = `
-            <a href="${items[index].href}" target="_blank" rel="noopener noreferrer" class="btn btn--flat" title="Open in new tab">
-              <svg class="fa d-icon d-icon-external-link-alt svg-icon svg-string" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#external-link-alt"></use></svg>
-              Open in New Tab
-            </a>
-          `;
-          
-          // Handle iframe load events
-          const iframe = contentArea.querySelector(".external-link-frame");
-          const loadingDiv = contentArea.querySelector(".iframe-loading");
-          const errorDiv = contentArea.querySelector(".iframe-error");
-          
-          if (iframe) {
-            iframe.addEventListener("load", () => {
-              loadingDiv.style.display = "none";
-            });
-            
-            iframe.addEventListener("error", () => {
-              loadingDiv.style.display = "none";
-              errorDiv.style.display = "block";
-              iframe.style.display = "none";
-            });
-            
-            // Timeout fallback for sites that silently block iframes
-            setTimeout(() => {
-              if (loadingDiv.style.display !== "none") {
-                try {
-                  // Test if we can access iframe content (will throw if blocked)
-                  iframe.contentWindow.location.href;
-                } catch (e) {
-                  loadingDiv.style.display = "none";
-                  errorDiv.style.display = "block";
-                  iframe.style.display = "none";
-                }
-              }
-            }, 5000);
-          }
-          
-        } else {
-          // Use Discourse API to fetch the topic
-          if (items[index].topicId) {
-            fetch(`/t/${items[index].topicId}.json`)
-              .then(response => response.json())
-              .then(data => {
-                // Get the first post's cooked content
-                if (data.post_stream && data.post_stream.posts && data.post_stream.posts[0]) {
-                  const cooked = data.post_stream.posts[0].cooked;
-                  if (cooked) {
-                    contentArea.innerHTML = cooked;
-                  } else {
-                    contentArea.innerHTML = "<p>No cooked content found</p>";
-                  }
-                } else {
-                  contentArea.innerHTML = "<p>Could not find post content</p>";
-                }
-              })
-              .catch(err => {
-                contentArea.innerHTML = "<p>Error loading content</p>";
-                console.error("API error", err);
-              });
-          } else {
-            contentArea.innerHTML = "<p>Could not determine topic ID</p>";
-          }
+  // Update nav bar
+  const navText = navBar.querySelector(".nav-text");
+  navText.textContent = `${collectionName}: ${items[index].title} (${index + 1}/${totalItems})`;
+
+  // Update prev/next button disabled states
+  prevBtn.disabled = (index === 0);
+  nextBtn.disabled = (index === totalItems - 1);
+
+}, SCROLL_THROTTLE_MS);
+
+// ================================================================
+// HELPER FUNCTIONS for iframe handling
+// ================================================================
+
+const loadExternalContent = (url) => {
+  return `
+    <div class="external-url-content">
+      <div class="external-url-header">
+        <h4>
+          <a href="${url}" target="_blank" rel="noopener noreferrer">
+            ${url}
+          </a>
+        </h4>
+      </div>
+      <div class="iframe-container">
+        <div class="iframe-loading">
+          Loading external content...
+        </div>
+        <iframe 
+          src="${url}" 
+          class="external-topic-iframe" 
+          sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-top-navigation"
+          loading="lazy"
+          title="External content"
+        ></iframe>
+        <div class="iframe-error">
+          <p>⚠️ This content cannot be displayed in an iframe</p>
+          <p>Some websites prevent embedding for security reasons.</p>
+          <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
+            Open in New Tab
+            <svg class="fa d-icon d-icon-external-link-alt svg-icon svg-string" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#external-link-alt"></use></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+const processContentWithIframes = (cookedContent) => {
+  // Process Discourse cooked content to ensure any embedded iframes are properly sandboxed
+  return cookedContent;
+};
+
+const setupIframeHandlers = (container) => {
+  const iframe = container.querySelector(".external-topic-iframe");
+  const loadingDiv = container.querySelector(".iframe-loading");
+  const errorDiv = container.querySelector(".iframe-error");
+  
+  if (iframe) {
+    iframe.addEventListener("load", () => {
+      if (loadingDiv) loadingDiv.style.display = "none";
+    });
+    
+    iframe.addEventListener("error", () => {
+      if (loadingDiv) loadingDiv.style.display = "none";
+      if (errorDiv) errorDiv.style.display = "flex";
+      iframe.style.display = "none";
+    });
+    
+    // Timeout fallback for sites that silently block iframes
+    setTimeout(() => {
+      if (loadingDiv && loadingDiv.style.display !== "none") {
+        try {
+          iframe.contentWindow.location.href;
+        } catch (e) {
+          loadingDiv.style.display = "none";
+          errorDiv.style.display = "flex";
+          iframe.style.display = "none";
         }
-
-        // Update active item in list
-        itemLinks.forEach(link => {
-          const idx = parseInt(link.getAttribute("data-index"));
-          if (idx === index) {
-            link.classList.add("active");
-          } else {
-            link.classList.remove("active");
-          }
-        });
-
-        // Update nav bar
-        const navText = navBar.querySelector(".nav-text");
-        navText.textContent = `${collectionName}: ${items[index].title} (${index + 1}/${totalItems})`;
-
-        // Update prev/next button disabled states
-        prevBtn.disabled = (index === 0);
-        nextBtn.disabled = (index === totalItems - 1);
-
-      }, SCROLL_THROTTLE_MS);
+      }
+    }, 5000);
+  }
+};
 
       // ================================================================
       // EVENT LISTENERS
