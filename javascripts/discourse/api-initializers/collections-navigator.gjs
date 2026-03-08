@@ -362,7 +362,7 @@ const updateModalContent = throttle((index) => {
     
     contentHeaderActions.innerHTML = `
       <a href="${items[index].href}" target="_blank" rel="noopener noreferrer" class="btn btn--flat">
-        <svg class="fa d-icon d-icon-external-link-alt" aria-hidden="true"><use href="#external-link-alt"></use></svg>
+        <svg class="fa d-icon d-icon-external-link-alt svg-icon" aria-hidden="true"><use href="#external-link-alt"></use></svg>
         Open in New Tab
       </a>
     `;
