@@ -43,27 +43,25 @@ export default apiInitializer("1.24.0", (api) => {
         return false;
       };
 
-      // Extract items from sidebar - ENHANCED with external URL detection
-      const links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
-      const items = Array.from(links).map((link) => {
-        const href = link.getAttribute("href");
-        
-        // Try multiple selectors to get the title text
-        let title = link.querySelector(".collection-link-content-text")?.textContent?.trim();
-        if (!title) title = link.querySelector(".sidebar-section-link-content-text")?.textContent?.trim();
-        if (!title) title = link.querySelector("[class*='content-text']")?.textContent?.trim();
-        if (!title) title = link.textContent?.trim();
-        if (!title) title = "Untitled";
+// Extract items from sidebar - FIXED regex
+const items = Array.from(links).map((link) => {
+  const href = link.getAttribute("href");
+  
+  let title = link.querySelector(".collection-link-content-text")?.textContent?.trim();
+  if (!title) title = link.querySelector(".sidebar-section-link-content-text")?.textContent?.trim();
+  if (!title) title = link.querySelector("[class*='content-text']")?.textContent?.trim();
+  if (!title) title = link.textContent?.trim();
+  if (!title) title = "Untitled";
 
-        // Determine if this is an external link
-        const external = isExternalUrl(href);
-        
-        // Extract topic ID for internal links
-        const idMatch = href.match(/\/(\d+)$/);
-        const topicId = !external && idMatch ? idMatch[1] : null;
+  const external = isExternalUrl(href);
+  
+  // ✅ FIXED REGEX
+  const idMatch = href.match(/\/(\d+)$/);
+  const topicId = !external && idMatch ? idMatch[1] : null;
 
-        return { title, href, topicId, external };
-      });
+  return { title, href, topicId, external };
+});
+
 
       if (items.length < 2) return;
 
@@ -485,86 +483,6 @@ const setupIframeHandlers = (container) => {
     console.warn(`❌ External iframe blocked: ${items[selectedIndex].href}`);
   }
 };
-
-// ================================================================
-// MISSING: Add these 3 functions
-// ================================================================
-
-const loadExternalContent = (url) => {
-  return `
-    <div class="external-url-content">
-      <div class="external-url-header">
-        <h4>
-          <a href="${url}" target="_blank" rel="noopener noreferrer">
-            ${url.replace(/^https?:\/\//, '')}
-            <svg class="fa d-icon d-icon-external-link-alt svg-icon svg-string" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#external-link-alt"></use></svg>
-          </a>
-        </h4>
-      </div>
-      <div class="iframe-container">
-        <div class="iframe-loading">Loading external content...</div>
-        <iframe src="${url}" class="external-topic-iframe" 
-                sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-top-navigation"
-                loading="lazy" title="External content" referrerpolicy="no-referrer-when-downgrade">
-        </iframe>
-        <div class="iframe-error">
-          <p>⚠️ Cannot display in iframe</p>
-          <p>Site blocks embedding (CSP/X-Frame-Options)</p>
-          <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
-            Open in New Tab →
-          </a>
-        </div>
-      </div>
-    </div>
-  `;
-};
-
-const processContentWithIframes = (cookedContent) => {
-  return cookedContent; // Placeholder - enhance if needed
-};
-
-const setupIframeHandlers = (container) => {
-  const iframe = container.querySelector(".external-topic-iframe");
-  const loadingDiv = container.querySelector(".iframe-loading");
-  const errorDiv = container.querySelector(".iframe-error");
-  
-  if (!iframe || !loadingDiv) return;
-  
-  let timeout;
-  
-  const hideLoading = () => loadingDiv.style.display = "none";
-  
-  iframe.addEventListener("load", () => {
-    hideLoading();
-    clearTimeout(timeout);
-    
-    setTimeout(() => {
-      try {
-        const doc = iframe.contentDocument || iframe.contentWindow?.document;
-        if (doc) {
-          container.classList.add("iframe-loaded");
-          console.log(`✅ Iframe OK: ${iframe.src}`);
-          return;
-        }
-      } catch (e) {}
-      
-      showError();
-    }, 300);
-  });
-  
-  iframe.addEventListener("error", showError);
-  
-  timeout = setTimeout(showError, 7000);
-  
-  function showError() {
-    hideLoading();
-    if (errorDiv) {
-      errorDiv.style.display = "flex";
-      iframe.style.display = "none";
-    }
-  }
-};
-
 
 
       // ================================================================
