@@ -415,7 +415,7 @@ const loadExternalContent = (url) => {
           sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-top-navigation"
           loading="lazy"
           title="External content: ${url}"
-          referrerpolicy="no-referrer-when-downgrade"
+
         ></iframe>
         <div class="iframe-error">
           <p>⚠️ This content cannot be displayed in an iframe</p>
