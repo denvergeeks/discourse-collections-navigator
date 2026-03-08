@@ -1,7 +1,8 @@
-// Replace the entire contents of javascripts/discourse/api-initializers/collections-navigator.gjs with this:
-
 // Collections Navigation - Modal with Discourse patterns integrated
-// FIXED: Robust external URL handling - treats full URLs as external content
+// Restores: sidebar, topic slider, paging buttons, title/description
+// Adds: Discourse carousel patterns for accessibility and performance
+// NEW: iframe support for external links in modal content area
+
 import { apiInitializer } from "discourse/lib/api";
 
 export default apiInitializer("1.24.0", (api) => {
@@ -24,11 +25,10 @@ export default apiInitializer("1.24.0", (api) => {
       const collectionName = collectionTitleEl?.textContent?.trim() || "Collection";
       const collectionDesc = collectionDescEl?.textContent?.trim() || "";
       
-      // Extract items from sidebar - ROBUST EXTERNAL URL HANDLING
+      // Extract items from sidebar - FIXED selector
       const links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
       const items = Array.from(links).map((link) => {
-        const href = link.getAttribute("href") || link.dataset.href || "";
-        
+        const href = link.getAttribute("href");
         // Try multiple selectors to get the title text
         let title = link.querySelector(".collection-link-content-text")?.textContent?.trim();
         if (!title) title = link.querySelector(".sidebar-section-link-content-text")?.textContent?.trim();
@@ -36,26 +36,17 @@ export default apiInitializer("1.24.0", (api) => {
         if (!title) title = link.textContent?.trim();
         if (!title) title = "Untitled";
         
-        // Determine if this is an external full URL
-        const isExternalFullUrl = href.startsWith("http://") || href.startsWith("https://");
-        
-        return { 
-          title, 
-          href, 
-          isExternalFullUrl,
-          fullDisplayUrl: href
-        };
+        const idMatch = href.match(/\/(\d+)$/);
+        const topicId = idMatch ? idMatch[1] : null;
+        return { title, href, topicId };
       });
 
+      
       if (items.length < 2) return;
       
-      // Find current item - improved matching for external URLs
-      const currentUrl = window.location.href;
-      const currentIndex = items.findIndex(item => {
-        if (item.href === currentUrl) return true;
-        if (currentUrl.includes(item.href)) return true;
-        return false;
-      });
+      // Find current item
+      const currentUrl = window.location.pathname;
+      const currentIndex = items.findIndex(item => currentUrl.includes(item.href.split("/")[2]));
       
       if (currentIndex === -1) return;
       
@@ -65,19 +56,28 @@ export default apiInitializer("1.24.0", (api) => {
       // Get cooked content from current page
       const getPostContent = () => {
         let content = document.querySelector(".topic-body .cooked");
+        if (!content) content = document.querySelector(".topic-body .cooked");
         return content ? content.innerHTML : "<p>Loading content...</p>";
       };
       
       const cookedContent = getPostContent();
       
+      // ================================================================
       // DISCOURSE PATTERNS INTEGRATION
+      // ================================================================
+      
+      // Pattern #1: Constants
       const KEYBOARD_THROTTLE_MS = 150;
       const SCROLL_THROTTLE_MS = 50;
       
+      // Pattern #2: Scroll behavior with reduced-motion support
       function getScrollBehavior() {
-        return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth";
+        return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+          ? "auto"
+          : "smooth";
       }
       
+      // Pattern #5: Throttle helper
       function throttle(func, wait) {
         let timeout;
         return function executedFunction(...args) {
@@ -90,7 +90,10 @@ export default apiInitializer("1.24.0", (api) => {
         };
       }
       
+      // ================================================================
       // IFRAME SUPPORT FOR EXTERNAL LINKS
+      // ================================================================
+      
       function extractExternalLinks(htmlContent) {
         const tempDiv = document.createElement("div");
         tempDiv.innerHTML = htmlContent;
@@ -99,6 +102,7 @@ export default apiInitializer("1.24.0", (api) => {
         
         links.forEach(link => {
           const href = link.getAttribute("href");
+          // Check if it's an external link (starts with http/https and not same domain)
           if (href && (href.startsWith("http://") || href.startsWith("https://"))) {
             try {
               const url = new URL(href);
@@ -108,7 +112,9 @@ export default apiInitializer("1.24.0", (api) => {
                   text: link.textContent?.trim() || href
                 });
               }
-            } catch (e) {}
+            } catch (e) {
+              // Invalid URL, skip
+            }
           }
         });
         
@@ -116,9 +122,12 @@ export default apiInitializer("1.24.0", (api) => {
       }
       
       function createIframeDisplay(externalLinks) {
-        if (externalLinks.length === 0) return "";
+        if (externalLinks.length === 0) {
+          return "";
+        }
         
         let iframeHtml = `<div class="external-links-iframe-container">`;
+        
         externalLinks.forEach((link, index) => {
           iframeHtml += `
             <div class="iframe-wrapper" data-iframe-index="${index}">
@@ -129,7 +138,13 @@ export default apiInitializer("1.24.0", (api) => {
                 </a>
               </div>
               <div class="iframe-loading">Loading external content...</div>
-              <iframe src="${link.url}" class="external-link-iframe" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" loading="lazy" title="${link.text}"></iframe>
+              <iframe 
+                src="${link.url}" 
+                class="external-link-iframe"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                loading="lazy"
+                title="${link.text}"
+              ></iframe>
               <div class="iframe-error" style="display: none;">
                 <p>Unable to display this content in an iframe.</p>
                 <a href="${link.url}" target="_blank" class="btn btn-primary">Open in New Tab</a>
@@ -137,108 +152,88 @@ export default apiInitializer("1.24.0", (api) => {
             </div>
           `;
         });
+        
         iframeHtml += `</div>`;
         return iframeHtml;
       }
       
-function setupIframeHandlers(contentArea) {
-  const iframes = contentArea.querySelectorAll(".external-link-iframe, .external-topic-iframe");
-  
-  iframes.forEach((iframe, index) => {
-    const wrapper = iframe.closest(".iframe-wrapper, .iframe-container") || iframe.parentElement;
-    const loading = wrapper.querySelector(".iframe-loading");
-    const error = wrapper.querySelector(".iframe-error");
-    
-    if (!loading) return;
-    
-    // Hide loading and show iframe on successful load
-    const onIframeLoad = () => {
-      console.log(`Iframe ${index} loaded successfully`);
-      loading.style.display = "none";
-      iframe.style.display = "block";
-      iframe.style.height = "600px"; // Set explicit height
-    };
-    
-    // Hide everything and show error on load error
-    const onIframeError = () => {
-      console.log(`Iframe ${index} failed to load`);
-      loading.style.display = "none";
-      iframe.style.display = "none";
-      if (error) error.style.display = "block";
-    };
-    
-    // Attach events
-    iframe.addEventListener("load", onIframeLoad);
-    iframe.addEventListener("error", onIframeError);
-    
-    // Additional timeout check (some sites block iframes silently)
-    setTimeout(() => {
-      if (loading.style.display !== "none") {
-        try {
-          // Test if iframe content is accessible
-          iframe.contentDocument || iframe.contentWindow.document;
-          onIframeLoad();
-        } catch (e) {
-          console.log(`Iframe ${index} blocked by CORS/X-Frame-Options`);
-          onIframeError();
-        }
+      function setupIframeHandlers(contentArea) {
+        const iframes = contentArea.querySelectorAll(".external-link-iframe");
+        
+        iframes.forEach(iframe => {
+          const wrapper = iframe.closest(".iframe-wrapper");
+          const loading = wrapper.querySelector(".iframe-loading");
+          const error = wrapper.querySelector(".iframe-error");
+          
+          // Handle successful load
+          iframe.addEventListener("load", () => {
+            loading.style.display = "none";
+            iframe.style.display = "block";
+          });
+          
+          // Handle errors (CORS, X-Frame-Options, etc.)
+          iframe.addEventListener("error", () => {
+            loading.style.display = "none";
+            iframe.style.display = "none";
+            error.style.display = "block";
+          });
+          
+          // Timeout fallback (some sites silently block iframes)
+          setTimeout(() => {
+            try {
+              // Try to access iframe content to check if it loaded
+              iframe.contentWindow.document;
+              loading.style.display = "none";
+            } catch (e) {
+              // CORS error - iframe blocked
+              loading.style.display = "none";
+              iframe.style.display = "none";
+              error.style.display = "block";
+            }
+          }, 5000);
+        });
       }
-    }, 3000); // Reduced timeout for better UX
-  });
-}
       
       function processContentWithIframes(htmlContent) {
         const externalLinks = extractExternalLinks(htmlContent);
         const iframeDisplay = createIframeDisplay(externalLinks);
-        return iframeDisplay ? htmlContent + iframeDisplay : htmlContent;
+        
+        if (iframeDisplay) {
+          return htmlContent + iframeDisplay;
+        }
+        return htmlContent;
       }
       
-function loadExternalContent(url) {
-  return `
-    <div class="external-url-content">
-      <div class="external-url-header">
-        <h4>External Link: <a href="${url}" target="_blank">${url}</a></h4>
-        <a href="${url}" target="_blank" class="btn btn-primary">Open in New Tab</a>
-      </div>
-      <div class="iframe-container">
-        <div class="iframe-loading">Loading external site...</div>
-        <iframe src="${url}" class="external-topic-iframe" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation" loading="lazy" title="${url}" style="display: none;"></iframe>
-        <div class="iframe-error" style="display: none;">
-          <p>This site cannot be displayed in an iframe (likely due to X-Frame-Options security policy).</p>
-          <a href="${url}" target="_blank" class="btn btn-primary">Open in New Tab</a>
-        </div>
-      </div>
-    </div>
-  `;
-}
+      // ================================================================
+      // CREATE NAVIGATION BAR (Top of page)
+      // ================================================================
       
-      // CREATE NAVIGATION BAR
       const navBar = document.createElement("div");
       navBar.className = "collections-item-nav-bar collections-nav-injected";
+      
       navBar.innerHTML = `
         <button class="btn btn--primary collections-nav-toggle" title="Open collection navigator" type="button">
-          <svg class="fa d-icon d-icon-collection-pip svg-icon fa-width-auto prefix-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#collection-pip"></use></svg>
+<svg class="fa d-icon d-icon-collection-pip svg-icon fa-width-auto prefix-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#collection-pip"></use></svg>
           <span class="nav-text">${collectionName}: ${currentItem.title} (${currentIndex + 1}/${totalItems})</span>
         </button>
         <div class="collections-quick-nav">
           <button class="btn btn--secondary collections-nav-prev" ${currentIndex === 0 ? 'disabled' : ''} title="Previous (arrow key)" type="button">
-            <svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-left"></use></svg>
+<svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-left"></use></svg>
           </button>
           <button class="btn btn--secondary collections-nav-next" ${currentIndex === totalItems - 1 ? 'disabled' : ''} title="Next (arrow key)" type="button">
-            <svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-right"></use></svg>
+<svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-right"></use></svg>
           </button>
         </div>
       `;
+
       postsContainer.parentNode.insertBefore(navBar, postsContainer);
       
-      // CREATE MODAL
+      // ================================================================
+      // CREATE MODAL WITH ALL FEATURES
+      // ================================================================
+      
       const modal = document.createElement("div");
       modal.className = "collections-nav-modal-overlay";
-      
-      // Initial content - external URLs get special handling
-      const initialContent = currentItem.isExternalFullUrl 
-        ? loadExternalContent(currentItem.fullDisplayUrl)
-        : processContentWithIframes(cookedContent);
       
       modal.innerHTML = `
         <div class="collections-nav-modal collections-modal-with-content">
@@ -284,14 +279,14 @@ function loadExternalContent(url) {
                 <h3 class="content-title">${currentItem.title}</h3>
               </div>
               <div class="cooked-content">
-                ${initialContent}
+                ${processContentWithIframes(cookedContent)}
               </div>
             </div>
           </div>
           
           <div class="modal-nav-footer">
             <button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ${currentIndex === 0 ? 'disabled' : ''}>
-              <svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-left"></use></svg>
+<svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-left"></use></svg>
               Previous
             </button>
             <div class="modal-paging">
@@ -299,7 +294,7 @@ function loadExternalContent(url) {
             </div>
             <button class="btn btn--secondary modal-content-next" title="Next item" type="button" ${currentIndex === totalItems - 1 ? 'disabled' : ''}>
               Next
-              <svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-right"></use></svg>
+<svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#arrow-right"></use></svg>
             </button>
           </div>
         </div>
@@ -307,11 +302,11 @@ function loadExternalContent(url) {
       
       document.body.appendChild(modal);
       
-      // Setup handlers
+      // Setup iframe handlers for initial content
       const contentArea = modal.querySelector(".cooked-content");
       setupIframeHandlers(contentArea);
       
-      // Rest of the event handlers remain the same...
+      // Get all elements
       const toggleBtn = navBar.querySelector(".collections-nav-toggle");
       const prevBtn = navBar.querySelector(".collections-nav-prev");
       const nextBtn = navBar.querySelector(".collections-nav-next");
@@ -324,24 +319,34 @@ function loadExternalContent(url) {
       const modalContentPrev = modal.querySelector(".modal-content-prev");
       const modalContentNext = modal.querySelector(".modal-content-next");
       const pagingText = modal.querySelector(".paging-text");
-      const topicSliderContainer = modal.querySelector(".topic-slider-container");
-
+const topicSliderContainer = modal.querySelector(".topic-slider-container");
+      const topicSlider = modal.querySelector(".topic-slider");
+      
       let selectedIndex = currentIndex;
+      let sidebarOpen = false;
       
-      const showModal = () => { modal.style.display = "flex"; };
-      const hideModal = () => { modal.style.display = "none"; };
+      // Modal show/hide
+      const showModal = () => {
+        modal.style.display = "flex";
+      };
       
+      const hideModal = () => {
+        modal.style.display = "none";
+      };
+      
+      // Sidebar toggle
       const toggleSidebar = () => {
-        const sidebarOpen = sidebar.classList.contains("collapsed");
+        sidebarOpen = !sidebarOpen;
         if (sidebarOpen) {
           sidebar.classList.remove("collapsed");
-          topicSliderContainer.classList.add("collapsed");
+topicSliderContainer.classList.add("collapsed");
         } else {
-          topicSliderContainer.classList.remove("collapsed");
+topicSliderContainer.classList.remove("collapsed");
           sidebar.classList.add("collapsed");
         }
       };
       
+      // Scroll slider to active item (Pattern #2)
       const scrollSliderToActive = () => {
         const activeSlider = modal.querySelector(".slider-item.active");
         if (activeSlider) {
@@ -353,71 +358,183 @@ function loadExternalContent(url) {
         }
       };
 
-      // SIMPLIFIED CONTENT LOADING - NO API CALLS FOR EXTERNAL URLS
+      // ================================================================
+      // UPDATE PAGE IN PLACE / INLINE
+      // ================================================================      
+
+      // Update page content (navigates to new URL)
+      const updatePageContent = (index) => {
+        if (index < 0 || index >= totalItems) return;
+        
+        selectedIndex = index;
+        
+        // Update nav bar
+        const navText = navBar.querySelector(".nav-text");
+        navText.textContent = `${collectionName}: ${items[index].title} (${index + 1}/${totalItems})`;
+        
+        // Update prev/next button disabled states
+        prevBtn.disabled = (index === 0);
+        nextBtn.disabled = (index === totalItems - 1);
+
+
+
+
+
+
+        
+        // Fetch new topic content via API
+        if (items[index].topicId) {
+          fetch(`/t/${items[index].topicId}.json`)
+            .then(response => response.json())
+            .then(data => {
+              // Update page title
+              document.title = items[index].title;
+              
+              // Update the post content on the page
+              let targetContent = document.querySelector(".post-stream .posts .boxed-body");
+              if (!targetContent) targetContent = document.querySelector(".posts .boxed-body");
+              if (!targetContent) targetContent = document.querySelector(".post-content");
+              if (!targetContent) targetContent = document.querySelector("[data-post-id] .cooked");
+              if (!targetContent) targetContent = document.querySelector(".cooked");
+              
+              if (targetContent) {
+                if (data.post_stream && data.post_stream.posts && data.post_stream.posts[0]) {
+                  const cooked = data.post_stream.posts[0].cooked;
+                  if (cooked) {
+                    targetContent.innerHTML = cooked;
+                    
+                    // Also update modal content
+                    contentTitle.textContent = items[index].title;
+                    if (data.post_stream && data.post_stream.posts && data.post_stream.posts[0]) {
+                      const cooked = data.post_stream.posts[0].cooked;
+                      if (cooked) {
+                        contentArea.innerHTML = processContentWithIframes(cooked);
+                        setupIframeHandlers(contentArea);
+                      }
+                    }
+                  }
+                }
+              }
+            })
+            .catch(err => console.error("Error updating content", err));
+        }
+      };
+      
+      // Update modal content (stays in modal)
       const updateModalContent = throttle((index) => {
         if (index < 0 || index >= totalItems) return;
         
         selectedIndex = index;
+        
+        // Update title immediately
         contentTitle.textContent = items[index].title;
+        contentArea.innerHTML = "<p>Loading...</p>";
         
-        if (items[index].isExternalFullUrl) {
-          // External full URL - show in iframe
-          contentArea.innerHTML = loadExternalContent(items[index].fullDisplayUrl);
-          setupIframeHandlers(contentArea);
-        } else {
-          // Internal topic - try to load content
-          contentArea.innerHTML = "<p>Loading...</p>";
-          // For internal topics, you'd fetch from current domain API
-          // but skip API call for now to focus on external URL fix
-          contentArea.innerHTML = processContentWithIframes(cookedContent);
-          setupIframeHandlers(contentArea);
-        }
-        
-        // Update UI states
+        // Update paging text
         pagingText.textContent = `${index + 1}/${totalItems}`;
+        
+        // Update modal buttons
         modalContentPrev.disabled = (index === 0);
         modalContentNext.disabled = (index === totalItems - 1);
         
+        // Update slider active state
         sliderItems.forEach(item => {
           const idx = parseInt(item.getAttribute("data-index"));
-          item.classList.toggle("active", idx === index);
+          if (idx === index) {
+            item.classList.add("active");
+          } else {
+            item.classList.remove("active");
+          }
         });
         
+        // Scroll slider to active item
+        setTimeout(scrollSliderToActive, 100);
+        
+        // Use Discourse API to fetch the topic
+        if (items[index].topicId) {
+          fetch(`/t/${items[index].topicId}.json`)
+            .then(response => response.json())
+            .then(data => {
+              // Get the first post's cooked content
+              if (data.post_stream && data.post_stream.posts && data.post_stream.posts[0]) {
+                const cooked = data.post_stream.posts[0].cooked;
+                if (cooked) {
+                  contentArea.innerHTML = processContentWithIframes(cooked);
+                  setupIframeHandlers(contentArea);
+                } else {
+                  contentArea.innerHTML = "<p>No cooked content found</p>";
+                }
+              } else {
+                contentArea.innerHTML = "<p>Could not find post content</p>";
+              }
+            })
+            .catch(err => {
+              contentArea.innerHTML = "<p>Error loading content</p>";
+              console.error("API error", err);
+            });
+        } else {
+          contentArea.innerHTML = "<p>Could not determine topic ID</p>";
+        }
+        
+        // Update active item in list
         itemLinks.forEach(link => {
           const idx = parseInt(link.getAttribute("data-index"));
-          link.classList.toggle("active", idx === index);
+          if (idx === index) {
+            link.classList.add("active");
+          } else {
+            link.classList.remove("active");
+          }
         });
         
+        // Update nav bar
         const navText = navBar.querySelector(".nav-text");
         navText.textContent = `${collectionName}: ${items[index].title} (${index + 1}/${totalItems})`;
         
+        // Update prev/next button disabled states
         prevBtn.disabled = (index === 0);
         nextBtn.disabled = (index === totalItems - 1);
-        
-        setTimeout(scrollSliderToActive, 100);
       }, SCROLL_THROTTLE_MS);
       
-      // Event listeners (same as before)
+      // ================================================================
+      // EVENT LISTENERS
+      // ================================================================
+      
+      // Toggle modal
       toggleBtn.addEventListener("click", showModal);
+      
+      // Sidebar toggle
       sidebarToggle.addEventListener("click", toggleSidebar);
+      
+      // Close modal
       closeBtn.addEventListener("click", hideModal);
       
+      // Page nav buttons - update page content
       prevBtn.addEventListener("click", () => {
-        if (selectedIndex > 0) updateModalContent(selectedIndex - 1);
+        if (selectedIndex > 0) {
+          updatePageContent(selectedIndex - 1);
+        }
       });
       
       nextBtn.addEventListener("click", () => {
-        if (selectedIndex < totalItems - 1) updateModalContent(selectedIndex + 1);
+        if (selectedIndex < totalItems - 1) {
+          updatePageContent(selectedIndex + 1);
+        }
       });
       
+      // Modal content nav buttons
       modalContentPrev.addEventListener("click", () => {
-        if (selectedIndex > 0) updateModalContent(selectedIndex - 1);
+        if (selectedIndex > 0) {
+          updateModalContent(selectedIndex - 1);
+        }
       });
       
       modalContentNext.addEventListener("click", () => {
-        if (selectedIndex < totalItems - 1) updateModalContent(selectedIndex + 1);
+        if (selectedIndex < totalItems - 1) {
+          updateModalContent(selectedIndex + 1);
+        }
       });
       
+      // Item links in modal - update modal content
       itemLinks.forEach(link => {
         link.style.cursor = "pointer";
         link.addEventListener("click", (e) => {
@@ -426,6 +543,7 @@ function loadExternalContent(url) {
         });
       });
       
+      // Slider item clicks
       sliderItems.forEach(item => {
         item.addEventListener("click", (e) => {
           const index = parseInt(item.getAttribute("data-index"));
@@ -433,27 +551,60 @@ function loadExternalContent(url) {
         });
       });
       
+      // Close on overlay background only
       modal.addEventListener("click", (e) => {
-        if (e.target === modal) hideModal();
+        if (e.target === modal) {
+          hideModal();
+        }
       });
       
-      // Keyboard navigation
+      // ================================================================
+      // KEYBOARD NAVIGATION (Pattern #1 - Throttled)
+      // ================================================================
+      
       let lastKeyPress = 0;
+      
       document.addEventListener("keydown", (e) => {
         if (modal.style.display === "flex") {
-          const now = Date.now();
-          if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) return;
-          lastKeyPress = now;
-          
+          // Modal is open - navigate within modal
           if (e.key === "ArrowLeft" && selectedIndex > 0) {
+            const now = Date.now();
+            if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
+              return;
+            }
+            lastKeyPress = now;
             e.preventDefault();
             updateModalContent(selectedIndex - 1);
           } else if (e.key === "ArrowRight" && selectedIndex < totalItems - 1) {
+            const now = Date.now();
+            if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
+              return;
+            }
+            lastKeyPress = now;
             e.preventDefault();
             updateModalContent(selectedIndex + 1);
           } else if (e.key === "Escape") {
             e.preventDefault();
             hideModal();
+          }
+        } else {
+          // Modal is closed - navigate the page
+          if (e.key === "ArrowLeft" && selectedIndex > 0) {
+            const now = Date.now();
+            if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
+              return;
+            }
+            lastKeyPress = now;
+            e.preventDefault();
+            updatePageContent(selectedIndex - 1);
+          } else if (e.key === "ArrowRight" && selectedIndex < totalItems - 1) {
+            const now = Date.now();
+            if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
+              return;
+            }
+            lastKeyPress = now;
+            e.preventDefault();
+            updatePageContent(selectedIndex + 1);
           }
         }
       });
