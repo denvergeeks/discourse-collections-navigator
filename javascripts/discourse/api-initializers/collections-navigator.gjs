@@ -471,34 +471,34 @@ const loadExternalContent = (url) => {
     <div class="external-url-content">
       <div class="external-url-header">
         <h4>
-          <a href="${url}" target="_blank" rel="noopener noreferrer">
-            ${url}
+          <a href="${url}" target="_blank" rel="noopener noreferrer" class="external-url-link">
+            ${url.replace(/^https?:\/\//, '')}
+            <svg class="fa d-icon d-icon-external-link-alt svg-icon svg-string" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#external-link-alt"></use></svg>
           </a>
         </h4>
       </div>
       <div class="iframe-container">
-        <div class="iframe-loading">
-          Loading external content...
-        </div>
+        <div class="iframe-loading">Loading external content...</div>
         <iframe 
           src="${url}" 
           class="external-topic-iframe" 
           sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-top-navigation"
           loading="lazy"
-          title="External content"
+          title="External content: ${url}"
+          referrerpolicy="no-referrer-when-downgrade"
         ></iframe>
         <div class="iframe-error">
           <p>⚠️ This content cannot be displayed in an iframe</p>
-          <p>Some websites prevent embedding for security reasons.</p>
+          <p>Site security settings (CSP/X-Frame-Options) prevent embedding</p>
           <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
-            Open in New Tab
-            <svg class="fa d-icon d-icon-external-link-alt svg-icon svg-string" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#external-link-alt"></use></svg>
+            Open in New Tab →
           </a>
         </div>
       </div>
     </div>
   `;
 };
+
 
 const processContentWithIframes = (cookedContent) => {
   // Process Discourse cooked content to ensure any embedded iframes are properly sandboxed
@@ -510,31 +510,55 @@ const setupIframeHandlers = (container) => {
   const loadingDiv = container.querySelector(".iframe-loading");
   const errorDiv = container.querySelector(".iframe-error");
   
-  if (iframe) {
-    iframe.addEventListener("load", () => {
-      if (loadingDiv) loadingDiv.style.display = "none";
-    });
+  if (!iframe || !loadingDiv || !errorDiv) return;
+  
+  let loadTimeout;
+  
+  // Hide loading immediately when iframe starts loading
+  iframe.addEventListener("loadstart", () => {
+    loadingDiv.style.display = "none";
+  });
+  
+  // Success: iframe loaded AND accessible
+  iframe.addEventListener("load", () => {
+    clearTimeout(loadTimeout);
     
-    iframe.addEventListener("error", () => {
-      if (loadingDiv) loadingDiv.style.display = "none";
-      if (errorDiv) errorDiv.style.display = "flex";
-      iframe.style.display = "none";
-    });
-    
-    // Timeout fallback for sites that silently block iframes
-    setTimeout(() => {
-      if (loadingDiv && loadingDiv.style.display !== "none") {
-        try {
-          iframe.contentWindow.location.href;
-        } catch (e) {
-          loadingDiv.style.display = "none";
-          errorDiv.style.display = "flex";
-          iframe.style.display = "none";
-        }
+    // Test if iframe is accessible (not blocked by CSP)
+    try {
+      // Try to access iframe properties without triggering CSP errors
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (iframeDoc) {
+        console.log(`✅ External iframe loaded successfully: ${items[selectedIndex].href}`);
+        errorDiv.style.display = "none";
+        return;
       }
-    }, 5000);
+    } catch (e) {
+      // CSP or cross-origin block
+    }
+    
+    // Fallback: if iframe loaded but not accessible, show error
+    showIframeError();
+  });
+  
+  // Network error
+  iframe.addEventListener("error", () => {
+    clearTimeout(loadTimeout);
+    showIframeError();
+  });
+  
+  // 8-second timeout fallback
+  loadTimeout = setTimeout(() => {
+    showIframeError();
+  }, 8000);
+  
+  function showIframeError() {
+    loadingDiv.style.display = "none";
+    errorDiv.style.display = "flex";
+    iframe.style.display = "none";
+    console.warn(`❌ External iframe blocked: ${items[selectedIndex].href}`);
   }
 };
+
 
       // ================================================================
       // EVENT LISTENERS
