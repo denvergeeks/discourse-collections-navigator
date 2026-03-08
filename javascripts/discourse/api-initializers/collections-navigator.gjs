@@ -7,6 +7,9 @@ import { apiInitializer } from "discourse/lib/api";
 
 export default apiInitializer("1.24.0", (api) => {
   api.onPageChange(() => {
+
+let links, items, currentIndex, currentItem, totalItems;
+
     setTimeout(() => {
       const sidebarPanel = document.querySelector(".discourse-collections-sidebar-panel");
       const postsContainer = document.querySelector(".posts");
@@ -14,6 +17,8 @@ export default apiInitializer("1.24.0", (api) => {
       if (!sidebarPanel || !postsContainer) {
         return;
       }
+
+  links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
 
       // Remove old nav if exists
       document.querySelectorAll(".collections-nav-injected").forEach(el => el.remove());
