@@ -361,7 +361,7 @@ const updateModalContent = throttle((index) => {
     setupIframeHandlers(contentArea);
     
     contentHeaderActions.innerHTML = `
-      <a href="${items[index].href}" target="_blank" rel="noopener noreferrer" class="btn btn-primary collection-item-link external-link active">
+      <a href="${items[index].href}" target="_blank" rel="noopener noreferrer" class="collection-item-link external-link active">
         <svg class="fa d-icon d-icon-external-link-alt svg-icon" aria-hidden="true"><use href="#external-link-alt"></use></svg>
         Open in New Tab
       </a>
