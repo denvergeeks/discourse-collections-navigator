@@ -850,7 +850,10 @@
     display: flex;
     gap: var(--space-8);
 
-    .btn { gap: var(--space-4); }
+    .btn {
+       gap: var(--space-4);
+       color: var(--d-button-primary-text-color);
+     }
   }
 }
 
