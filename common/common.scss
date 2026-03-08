@@ -539,6 +539,101 @@
 }
 
 /* ============================================
+   External Links Iframe Display
+   ============================================ */
+
+.external-links-iframe-container {
+  margin-top: var(--space-24);
+  padding-top: var(--space-24);
+  border-top: 2px solid var(--color-border);
+}
+
+.iframe-wrapper {
+  margin-bottom: var(--space-24);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  overflow: hidden;
+  background: var(--secondary);
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.iframe-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-12) var(--space-16);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-12);
+
+  .iframe-title {
+    flex: 1;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+    font-size: var(--font-size-base);
+  }
+
+  .iframe-open-new {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    transition: all 150ms ease-out;
+
+    &:hover {
+      background: var(--color-secondary);
+      color: var(--color-primary);
+    }
+
+    .d-icon {
+      font-size: var(--font-size-base);
+    }
+  }
+}
+
+.iframe-loading {
+  padding: var(--space-32);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  background: var(--secondary);
+}
+
+.external-link-iframe {
+  width: 100%;
+  height: 600px;
+  border: none;
+  display: none;
+  background: white;
+
+  @media (max-width: 768px) {
+    height: 400px;
+  }
+}
+
+.iframe-error {
+  padding: var(--space-24);
+  text-align: center;
+  background: var(--secondary);
+
+  p {
+    margin: 0 0 var(--space-16) 0;
+    color: var(--color-text-secondary);
+  }
+
+  .btn {
+    margin: 0 auto;
+  }
+}
+
+/* ============================================
    Responsive Adjustments
    ============================================ */
 
@@ -569,6 +664,15 @@
   .cooked-content {
     padding: var(--space-6);
   }
+  
+  .iframe-header {
+    flex-direction: column;
+    align-items: flex-start;
+    
+    .iframe-open-new {
+      align-self: flex-end;
+    }
+  }
 }
 
 /* ============================================
@@ -582,6 +686,10 @@
 
   .collection-item-link:hover {
     background: rgba(255, 255, 255, 0.05);
+  }
+  
+  .external-link-iframe {
+    background: var(--secondary);
   }
 }
 
@@ -606,6 +714,10 @@
       border-left-color: var(--color-success);
     }
   }
+  
+  .iframe-wrapper {
+    border-width: 2px;
+  }
 }
 
 /* ============================================
@@ -616,6 +728,14 @@
   .collections-item-nav-bar,
   .collections-nav-modal-overlay,
   .collections-nav-modal {
+    display: none;
+  }
+  
+  .external-link-iframe {
+    display: none;
+  }
+  
+  .iframe-error {
     display: none;
   }
 }
@@ -633,6 +753,10 @@
     scroll-behavior: auto !important;
     transition: none !important;
     animation: none !important;
+  }
+  
+  .iframe-wrapper {
+    transition: none !important;
   }
 }
 
