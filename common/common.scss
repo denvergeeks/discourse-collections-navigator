@@ -419,6 +419,7 @@
   padding: var(--space-16);
   border-top: 1px solid var(--color-border);
   background: var(--secondary);
+   margin-top: 1em;
 
   .btn {
     flex: 1;
@@ -801,3 +802,144 @@
   background: var(--tertiary) !important;
 }
 */
+
+
+/* External URL Iframe Display - COMPLETE */
+.external-url-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  
+  .external-url-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-16);
+    background: var(--color-surface-low);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0; // Don't let header shrink
+    
+    h4 {
+      margin: 0;
+      font-size: var(--font-size-base);
+      
+      a {
+        color: var(--primary);
+        text-decoration: none;
+        
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+  
+  .iframe-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden; // KEY: Prevents double scrollbar
+    min-height: 0; // Allows flex child to shrink
+    
+    .iframe-loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: var(--space-16);
+      background: var(--secondary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-base);
+      color: var(--color-text-secondary);
+      font-style: italic;
+      z-index: 10;
+      text-align: center;
+    }
+    
+    .external-topic-iframe {
+      flex: 1;
+      width: 100%;
+      height: 100%; // Fill container
+      border: none;
+      display: block;
+      background: var(--secondary);
+      min-height: 0; // Allow shrinking
+    }
+    
+    .iframe-error {
+      padding: var(--space-24);
+      text-align: center;
+      background: var(--tertiary);
+      border: 1px solid var(--color-border-danger);
+      border-radius: var(--radius-base);
+      
+      p {
+        margin: 0 0 var(--space-16) 0;
+        color: var(--color-text-secondary);
+      }
+      
+      .btn {
+        margin: 0 auto;
+        display: block;
+      }
+    }
+  }
+}
+
+// Disable cooked-content scrolling when iframe present
+.cooked-content {
+  &:has(.external-url-content) {
+    overflow: hidden;
+    padding: 0;
+  }
+}
+
+/* Ensure existing iframe styles work with new external-topic-iframe class */
+.external-link-iframe-container,
+.external-links-iframe-container {
+  margin-top: var(--space-24);
+  padding-top: var(--space-24);
+  border-top: 2px solid var(--color-border);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .external-url-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-8);
+    
+    h4 {
+      font-size: var(--font-size-sm);
+    }
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .external-topic-iframe,
+  .iframe-loading,
+  .iframe-error {
+    transition: none !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .external-topic-iframe,
+  .iframe-container,
+  .iframe-loading,
+  .iframe-error {
+    display: none;
+  }
+  
+  .external-url-header {
+    margin: 0;
+    border: none;
+    
+    h4 a {
+      color: black;
+    }
+  }
+}
