@@ -417,13 +417,13 @@ const loadExternalContent = (url) => {
           title="External content: ${url}"
 
         ></iframe>
-        <div class="iframe-error">
-          <p>⚠️ This content cannot be displayed in an iframe</p>
-          <p>Site security settings (CSP/X-Frame-Options) prevent embedding</p>
-          <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
-            Open in New Tab →
-          </a>
-        </div>
+//        <div class="iframe-error">
+//          <p>⚠️ This content cannot be displayed in an iframe</p>
+//          <p>Site security settings (CSP/X-Frame-Options) prevent embedding</p>
+//          <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
+//            Open in New Tab →
+//          </a>
+//        </div>
       </div>
     </div>
   `;
