@@ -439,53 +439,30 @@ const setupIframeHandlers = (container) => {
   const iframe = container.querySelector(".external-topic-iframe");
   const loadingDiv = container.querySelector(".iframe-loading");
   const errorDiv = container.querySelector(".iframe-error");
-  
-  if (!iframe || !loadingDiv || !errorDiv) return;
-  
-  let loadTimeout;
-  
-  // Hide loading immediately when iframe starts loading
-  iframe.addEventListener("loadstart", () => {
-    loadingDiv.style.display = "none";
-  });
-  
-  // Success: iframe loaded AND accessible
-  iframe.addEventListener("load", () => {
-    clearTimeout(loadTimeout);
+
+  if (iframe) {
+    iframe.addEventListener("load", () => {
+      if (loadingDiv) loadingDiv.style.display = "none";
+    });
     
-    // Test if iframe is accessible (not blocked by CSP)
-    try {
-      // Try to access iframe properties without triggering CSP errors
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (iframeDoc) {
-        console.log(`✅ External iframe loaded successfully: ${items[selectedIndex].href}`);
-        errorDiv.style.display = "none";
-        return;
+    iframe.addEventListener("error", () => {
+      if (loadingDiv) loadingDiv.style.display = "none";
+      if (errorDiv) errorDiv.style.display = "flex";
+      iframe.style.display = "none";
+    });
+    
+    // Timeout fallback for sites that silently block iframes
+    setTimeout(() => {
+      if (loadingDiv && loadingDiv.style.display !== "none") {
+        try {
+          iframe.contentWindow.location.href;
+        } catch (e) {
+          loadingDiv.style.display = "none";
+          errorDiv.style.display = "flex";
+          iframe.style.display = "none";
+        }
       }
-    } catch (e) {
-      // CSP or cross-origin block
-    }
-    
-    // Fallback: if iframe loaded but not accessible, show error
-    showIframeError();
-  });
-  
-  // Network error
-  iframe.addEventListener("error", () => {
-    clearTimeout(loadTimeout);
-    showIframeError();
-  });
-  
-  // 8-second timeout fallback
-  loadTimeout = setTimeout(() => {
-    showIframeError();
-  }, 8000);
-  
-  function showIframeError() {
-    loadingDiv.style.display = "none";
-    errorDiv.style.display = "flex";
-    iframe.style.display = "none";
-    console.warn(`❌ External iframe blocked: ${items[selectedIndex].href}`);
+    }, 5000);
   }
 };
 
