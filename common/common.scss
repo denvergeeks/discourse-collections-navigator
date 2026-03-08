@@ -858,6 +858,7 @@
   min-height: 0; /* Required for flex children to shrink */
 }
 
+/*
 .iframe-loading {
   position: absolute;
   top: 50%;
@@ -886,6 +887,40 @@
     animation: spinner 0.8s linear infinite;
   }
 }
+*/
+
+
+.iframe-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: var(--space-16);
+  background: rgba(var(--color-background), 0.98);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  color: var(--color-text-secondary);
+  font-style: italic;
+  z-index: 10;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  
+  &::after {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 36px;
+    margin: var(--space-12) auto 0;
+    border: 3px solid var(--primary-low);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spinner 1s linear infinite;
+  }
+}
+
+
+
 
 .external-topic-iframe {
   width: 100%;
@@ -898,6 +933,8 @@
   overflow: auto;
 }
 
+
+/*
 .iframe-error {
   flex: 1;
   padding: var(--space-24);
@@ -927,6 +964,48 @@
     max-width: 200px;
   }
 }
+*/
+
+
+.iframe-error {
+  flex: 1;
+  padding: var(--space-24);
+  text-align: center;
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-12);
+  background: var(--tertiary);
+  border: 2px solid var(--color-border-danger);
+  border-radius: var(--radius-base);
+  
+  p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    
+    &:first-child {
+      font-weight: var(--font-weight-bold);
+      font-size: var(--font-size-lg);
+      color: var(--color-danger);
+    }
+  }
+  
+  .btn {
+    margin: 0;
+    padding: var(--space-8) var(--space-16);
+    max-width: 220px;
+  }
+}
+
+/* Success state - hide error when iframe works */
+.external-url-content.iframe-loaded {
+  .iframe-error {
+    display: none !important;
+  }
+}
+
+
 
 /* Ensure modal doesn't scroll when external content is active */
 .collections-nav-modal.external-url-active {
