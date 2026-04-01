@@ -475,30 +475,28 @@ export default apiInitializer("1.24.0", (api) => {
         "</div>" +
         "</div>" +
         "</div>" +
-        '<div class="modal-nav-footer">' +
-        '<button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ' +
-        (currentIndex === 0 ? "disabled" : "") +
-        ">" +
-        '<svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
-        '<use href="#arrow-left"></use>' +
-        "</svg>" +
-        "Previous" +
-        "</button>" +
-
-
-
-
+        
+ //       '<div class="modal-nav-footer">' +
+ //       '<button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ' +
+ //       (currentIndex === 0 ? "disabled" : "") +
+ //       ">" +
+ //       '<svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
+ //       '<use href="#arrow-left"></use>' +
+ //       "</svg>" +
+ //       "Previous" +
+ //       "</button>" +
 
         
-        '<button class="btn btn--secondary modal-content-next" title="Next item" type="button" ' +
-        (currentIndex === totalItems - 1 ? "disabled" : "") +
-        ">" +
-        "Next" +
-        '<svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
-        '<use href="#arrow-right"></use>' +
-        "</svg>" +
-        "</button>" +
-        "</div>" +
+//       '<button class="btn btn--secondary modal-content-next" title="Next item" type="button" ' +
+//        (currentIndex === totalItems - 1 ? "disabled" : "") +
+//        ">" +
+//        "Next" +
+//        '<svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
+//        '<use href="#arrow-right"></use>' +
+//        "</svg>" +
+//        "</button>" +
+//        "</div>" +
+        
         "</div>";
 
       document.body.appendChild(modal);
