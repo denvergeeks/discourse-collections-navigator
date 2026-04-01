@@ -875,7 +875,7 @@ display:none;
 
 
 .collections-external-link-button {
-       background: var(--hover-shadow);
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -924,11 +924,13 @@ display:none;
   inline-size: 1.85rem;
   block-size: 1.85rem;
   margin-inline-start: 0.45rem;
+          background: var(--hover-shadow);
 }
 
 .collections-external-link-button.in-sidebar {
   margin-inline-start: auto;
   flex: 0 0 auto;
+          background: var(--hover-shadow);
 }
 
 .collection-item-link {
