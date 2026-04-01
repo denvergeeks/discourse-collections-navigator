@@ -2,6 +2,22 @@
    Collections Item Navigation
    ============================================ */
 
+@import "svg-icon-mixins";
+
+// External Links
+
+.ext-link {
+  &:after {
+    content: "";
+    display: inline-block;
+    vertical-align: text-top;
+    @include svg-icon(solid, arrow-up-right-from-square, var(--success), .65em, .65em);
+    mask-size: .6em .6em;
+    mask-position: .05em .05em;
+    opacity: 1;
+  }
+}
+
 .collections-item-nav-bar {
   display: flex;
   align-items: center;
