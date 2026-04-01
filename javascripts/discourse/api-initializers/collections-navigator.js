@@ -360,10 +360,11 @@ export default apiInitializer("1.24.0", (api) => {
             escapeHtml(collectionDesc) +
             "</p>"
           : "") +
-// '<div class="topic-slider-container">' +
-// '<div class="topic-slider">' +
-        '<div class="user-navigation user-navigation-secondary">' +
-        '<div class="horizontal-overflow-nav has-scroll">' +
+          '<div class="topic-slider-container">' +
+          '<div class="topic-slider">' +
+// To display as a brick wall of buttons
+//        '<div class="user-navigation user-navigation-secondary">' +
+//        '<div class="horizontal-overflow-nav has-scroll">' +
         items.map(sliderButtonHtml).join("") +
         "</div>" +
         "</div>" +
