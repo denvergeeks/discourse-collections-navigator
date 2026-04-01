@@ -316,11 +316,12 @@ export default apiInitializer("1.24.0", (api) => {
         escapeHtml(collectionName) +
         ": " +
         escapeHtml(currentItem.title) +
-        " (" +
+        " [ " +
         (currentIndex + 1) +
         "/" +
         totalItems +
-        ")</span>" +
+        " ] " +
+        "</span>" +
         "</button>" +
         '<div class="collections-quick-nav">' +
         '<button class="btn btn--secondary collections-nav-prev" ' +
