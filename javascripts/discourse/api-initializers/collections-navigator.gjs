@@ -479,7 +479,7 @@ export default apiInitializer("1.24.0", (api) => {
       const setupIframeHandlers = (container) => {
         const iframe = container.querySelector(".external-topic-iframe");
         const loadingDiv = container.querySelector(".iframe-loading");
-        const wrapper = container.querySelector(".iframe-container");
+        const wrapper = container.querySelector(".cooked-content.external-url-content-wrapper");
 
         if (!iframe) {
           return;
