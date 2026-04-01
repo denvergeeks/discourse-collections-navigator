@@ -872,9 +872,112 @@ display:none;
   to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
-/*
-.frame-container,
-.external-url-content {
-   height: 100%;
+
+
+.collections-external-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  margin-inline-start: 0.35rem;
+  border-radius: 999px;
+  color: var(--tertiary);
+  text-decoration: none;
+  vertical-align: middle;
+  line-height: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  transform-origin: center;
+  transition:
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  z-index: 1;
+
+  .svg-icon,
+  .d-icon,
+  svg {
+    pointer-events: none;
+  }
+
+  &:hover,
+  &:focus-visible {
+    transform: translate3d(3px, -3px, 0) scale(1.08);
+    box-shadow: 0 7px 18px rgb(0 0 0 / 18%);
+    background-color: var(--primary-low);
+    color: var(--tertiary-hover, var(--tertiary));
+    z-index: 2;
+  }
+
+  &:active {
+    transform: translate3d(1px, -1px, 0) scale(0.98);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 14%);
+  }
 }
-*/
+
+.collections-external-link-button.in-slider {
+  inline-size: 1.85rem;
+  block-size: 1.85rem;
+  margin-inline-start: 0.45rem;
+}
+
+.collections-external-link-button.in-sidebar {
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+}
+
+.collection-item-link {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.collection-item-link .item-title {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.slider-item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.slider-item .slider-item-title {
+  display: inline-block;
+}
+
+.external-url-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.collections-open-external-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.content-header-actions .collections-open-external-button .svg-icon,
+.content-header-actions .collections-open-external-button .d-icon,
+.content-header-actions .collections-open-external-button svg {
+  flex: 0 0 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collections-external-link-button {
+    transition:
+      color 0.12s ease,
+      background-color 0.12s ease,
+      box-shadow 0.12s ease;
+    transform: none !important;
+  }
+
+  .collections-external-link-button:hover,
+  .collections-external-link-button:focus-visible,
+  .collections-external-link-button:active {
+    transform: none !important;
+  }
+}
