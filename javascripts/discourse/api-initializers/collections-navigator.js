@@ -460,12 +460,13 @@ export default apiInitializer("1.24.0", (api) => {
 
 
         '<span class="modal-paging"><span class="paging-text">' +
-        "(" +
+        " (" +
         (currentIndex + 1) +
         "/" +
         totalItems +
+        ") Slides" +
         "</span></span>" +
-        ")" +
+
         
         '<div class="content-header-actions"></div>' +
         "</div>" +
