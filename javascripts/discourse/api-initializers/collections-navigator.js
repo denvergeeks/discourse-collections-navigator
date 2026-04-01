@@ -358,7 +358,7 @@ export default apiInitializer("1.24.0", (api) => {
         '<svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
         '<use href="#arrow-left"></use>' +
         "</svg>" +
-        "Previous" +
+        "Prev" +
         "</button>" +
         '<div class="modal-paging"><span class="paging-text">' +
         (currentIndex + 1) +
@@ -391,10 +391,6 @@ export default apiInitializer("1.24.0", (api) => {
         "</svg>" +
         "</button>" +
 
-
-
-
-        
         '<div class="modal-header-content">' +
         '<h2 class="modal-title">' +
         escapeHtml(collectionName) +
@@ -404,6 +400,24 @@ export default apiInitializer("1.24.0", (api) => {
             escapeHtml(collectionDesc) +
             "</p>"
           : "") +
+
+
+        
+        
+
+        '<button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ' +
+        (currentIndex === 0 ? "disabled" : "") +
+        ">" +
+        '<svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
+        '<use href="#arrow-left"></use>' +
+        "</svg>" +
+        "Prev" +
+        "</button>" +
+
+
+
+        
+        
           '<div class="topic-slider-container">' +
           '<div class="topic-slider">' +
 // To display as a brick wall of buttons
@@ -412,6 +426,24 @@ export default apiInitializer("1.24.0", (api) => {
         items.map(sliderButtonHtml).join("") +
         "</div>" +
         "</div>" +
+
+
+
+
+
+        '<button class="btn btn--secondary modal-content-next" title="Next item" type="button" ' +
+        (currentIndex === totalItems - 1 ? "disabled" : "") +
+        ">" +
+        "Next" +
+        '<svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
+        '<use href="#arrow-right"></use>' +
+        "</svg>" +
+        "</button>" +
+
+
+
+
+        
         "</div>" +
         '<button class="modal-close-btn" aria-label="Close modal" type="button">' +
         closeIcon +
