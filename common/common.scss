@@ -852,13 +852,14 @@ display:none;
 
 /* Header actions */
 .content-header {
-  display: flex;
+  /* display: flex; */
+   display: none;
   justify-content: space-between;
   align-items: center;
   gap: var(--space-12);
 
   .content-header-actions {
-    display: flex;
+    /* display: flex; */
      display:none;
     gap: var(--space-8);
 
@@ -871,8 +872,8 @@ display:none;
 
 
 
-.collections-modal-with-content .modal-items-sidebar.collapsed .modal-content-area.content-header {
-display: none;
+.collections-modal-with-content .topic-slider-container.collapsed .modal-content-area.content-header {
+display: block;
 }
 
 
