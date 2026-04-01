@@ -379,6 +379,26 @@ export default apiInitializer("1.24.0", (api) => {
 
 
         
+
+
+
+
+
+
+
+
+
+        
+        "</div>" +
+        '<button class="modal-close-btn" aria-label="Close modal" type="button">' +
+        closeIcon +
+        "</button>" +
+        "</div>" +
+
+
+
+
+
           '<div class="topic-slider-container">' +
 
 
@@ -421,18 +441,8 @@ export default apiInitializer("1.24.0", (api) => {
 
 
 
-
-
-
-
-
-
         
-        "</div>" +
-        '<button class="modal-close-btn" aria-label="Close modal" type="button">' +
-        closeIcon +
-        "</button>" +
-        "</div>" +
+        
         '<div class="modal-body-split">' +
         '<div class="modal-items-sidebar collapsed">' +
         '<ul class="collection-items-list">' +
