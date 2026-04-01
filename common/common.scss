@@ -709,6 +709,7 @@
 .external-url-header {
   flex-shrink: 0;
   display: flex;
+   display:none;
   justify-content: space-between;
   align-items: center;
   padding: var(--space-12) var(--space-16);
