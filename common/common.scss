@@ -481,6 +481,7 @@ display:none;
    ============================================ */
 
 .topic-slider-container {
+  display: flex;
   width: 100%;
   overflow: hidden;
   border-bottom: 1px solid var(--color-border);
@@ -867,6 +868,15 @@ display:none;
      }
   }
 }
+
+
+
+
+.modal-items-sidebar.collapsed .content-header {
+display:none;
+}
+
+
 
 @keyframes spinner {
   to { transform: translate(-50%, -50%) rotate(360deg); }
