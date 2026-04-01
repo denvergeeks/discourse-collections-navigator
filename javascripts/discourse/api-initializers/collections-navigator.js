@@ -454,6 +454,18 @@ export default apiInitializer("1.24.0", (api) => {
         '<h3 class="content-title">' +
         escapeHtml(currentItem.title) +
         "</h3>" +
+
+
+
+
+        '<span class="modal-paging"><span class="paging-text">' +
+        "(" +
+        (currentIndex + 1) +
+        "/" +
+        totalItems +
+        "</span></span>" +
+        ")" +
+        
         '<div class="content-header-actions"></div>' +
         "</div>" +
         '<div class="cooked-content">' +
@@ -470,11 +482,12 @@ export default apiInitializer("1.24.0", (api) => {
         "</svg>" +
         "Previous" +
         "</button>" +
-        '<div class="modal-paging"><span class="paging-text">' +
-        (currentIndex + 1) +
-        "/" +
-        totalItems +
-        "</span></div>" +
+
+
+
+
+
+        
         '<button class="btn btn--secondary modal-content-next" title="Next item" type="button" ' +
         (currentIndex === totalItems - 1 ? "disabled" : "") +
         ">" +
