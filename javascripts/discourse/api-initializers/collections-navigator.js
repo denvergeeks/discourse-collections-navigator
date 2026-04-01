@@ -44,8 +44,9 @@ export default apiInitializer("1.24.0", (api) => {
 
       const KEYBOARD_THROTTLE_MS = 150;
       const SCROLL_THROTTLE_MS = 50;
+      const EXTERNAL_LINK_TITLE = "Click to Open in New Browser Window";
 
-      const externalLinkIcon =
+      const externalLinkIconSvg =
         '<svg class="fa d-icon d-icon-collections-arrow-up-right-from-square svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#collections-arrow-up-right-from-square"></use></svg>';
 
       const closeIcon =
@@ -53,6 +54,19 @@ export default apiInitializer("1.24.0", (api) => {
 
       const checkIcon =
         '<svg class="fa d-icon d-icon-check svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><use href="#check"></use></svg>';
+
+      function escapeHtml(value) {
+        if (value === null || value === undefined) {
+          return "";
+        }
+
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
 
       function isExternalUrl(href) {
         if (!href) {
@@ -92,6 +106,26 @@ export default apiInitializer("1.24.0", (api) => {
         }
 
         return null;
+      }
+
+      function externalLinkButton(url, extraClass = "") {
+        if (!url) {
+          return "";
+        }
+
+        return (
+          '<a href="' +
+          escapeHtml(url) +
+          '" class="collections-external-link-button ' +
+          extraClass +
+          '" target="_blank" rel="noopener noreferrer" title="' +
+          escapeHtml(EXTERNAL_LINK_TITLE) +
+          '" aria-label="' +
+          escapeHtml(EXTERNAL_LINK_TITLE) +
+          '">' +
+          externalLinkIconSvg +
+          "</a>"
+        );
       }
 
       const items = Array.from(links).map((link) => {
@@ -179,7 +213,8 @@ export default apiInitializer("1.24.0", (api) => {
         : "<p>Loading content...</p>";
 
       function getScrollBehavior() {
-        const reduced = window.matchMedia &&
+        const reduced =
+          window.matchMedia &&
           window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
         return reduced ? "auto" : "smooth";
@@ -219,10 +254,9 @@ export default apiInitializer("1.24.0", (api) => {
           return;
         }
 
-        api.decorateCookedElement(
-          () => {},
-          { id: "collections-navigator-modal" }
-        );
+        api.decorateCookedElement(() => {}, {
+          id: "collections-navigator-modal",
+        });
 
         if (api.applyDecoratorsToElement) {
           api.applyDecoratorsToElement(element);
@@ -236,10 +270,12 @@ export default apiInitializer("1.24.0", (api) => {
           '" data-index="' +
           idx +
           '" title="' +
-          item.title.replace(/"/g, "&quot;") +
+          escapeHtml(item.title) +
           '" type="button">' +
-          (item.external ? externalLinkIcon + " " : "") +
-          item.title +
+          '<span class="slider-item-title">' +
+          escapeHtml(item.title) +
+          "</span>" +
+          (item.external ? externalLinkButton(item.href, "in-slider") : "") +
           "</button>"
         );
       }
@@ -254,16 +290,16 @@ export default apiInitializer("1.24.0", (api) => {
           '" data-index="' +
           idx +
           '" title="' +
-          item.title.replace(/"/g, "&quot;") +
+          escapeHtml(item.title) +
           '" role="button" tabindex="0">' +
           '<span class="item-number">' +
           (idx + 1) +
           "</span>" +
           '<span class="item-title">' +
-          item.title +
+          escapeHtml(item.title) +
           "</span>" +
           (idx === currentIndex ? checkIcon : "") +
-          (item.external ? externalLinkIcon : "") +
+          (item.external ? externalLinkButton(item.href, "in-sidebar") : "") +
           "</div>" +
           "</li>"
         );
@@ -277,9 +313,9 @@ export default apiInitializer("1.24.0", (api) => {
         '<use href="#collection-pip"></use>' +
         "</svg>" +
         '<span class="nav-text">' +
-        collectionName +
+        escapeHtml(collectionName) +
         ": " +
-        currentItem.title +
+        escapeHtml(currentItem.title) +
         " (" +
         (currentIndex + 1) +
         "/" +
@@ -316,11 +352,13 @@ export default apiInitializer("1.24.0", (api) => {
         "</svg>" +
         "</button>" +
         '<div class="modal-header-content">' +
-        "<h2 class=\"modal-title\">" +
-        collectionName +
+        '<h2 class="modal-title">' +
+        escapeHtml(collectionName) +
         "</h2>" +
         (collectionDesc
-          ? '<p class="collection-description">' + collectionDesc + "</p>"
+          ? '<p class="collection-description">' +
+            escapeHtml(collectionDesc) +
+            "</p>"
           : "") +
         '<div class="topic-slider-container">' +
         '<div class="topic-slider">' +
@@ -341,7 +379,7 @@ export default apiInitializer("1.24.0", (api) => {
         '<div class="modal-content-area">' +
         '<div class="content-header">' +
         '<h3 class="content-title">' +
-        currentItem.title +
+        escapeHtml(currentItem.title) +
         "</h3>" +
         '<div class="content-header-actions"></div>' +
         "</div>" +
@@ -402,6 +440,28 @@ export default apiInitializer("1.24.0", (api) => {
 
       let selectedIndex = currentIndex;
       let sidebarOpen = false;
+
+      function bindExternalLinkButtons(scope) {
+        if (!scope) {
+          return;
+        }
+
+        scope
+          .querySelectorAll(".collections-external-link-button")
+          .forEach((link) => {
+            link.addEventListener("click", (e) => {
+              e.stopPropagation();
+            });
+
+            link.addEventListener("mousedown", (e) => {
+              e.stopPropagation();
+            });
+
+            link.addEventListener("keydown", (e) => {
+              e.stopPropagation();
+            });
+          });
+      }
 
       function showModal() {
         modal.style.display = "flex";
@@ -521,18 +581,20 @@ export default apiInitializer("1.24.0", (api) => {
           '<div class="external-url-header">' +
           "<h4>" +
           '<a href="' +
-          url +
-          '" target="_blank" rel="noopener noreferrer" class="external-url-link">' +
-          url.replace(/^https?:\/\//, "") +
-          externalLinkIcon +
+          escapeHtml(url) +
+          '" target="_blank" rel="noopener noreferrer" title="' +
+          escapeHtml(EXTERNAL_LINK_TITLE) +
+          '" class="external-url-link">' +
+          escapeHtml(url.replace(/^https?:\/\//, "")) +
+          externalLinkIconSvg +
           "</a>" +
           "</h4>" +
           "</div>" +
           '<div class="iframe-loading">Loading external content...</div>' +
           '<iframe src="' +
-          url +
+          escapeHtml(url) +
           '" class="external-topic-iframe" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-top-navigation" loading="lazy" title="External content: ' +
-          url.replace(/"/g, "&quot;") +
+          escapeHtml(url) +
           '"></iframe>'
         );
       }
@@ -592,7 +654,7 @@ export default apiInitializer("1.24.0", (api) => {
         selectedIndex = index;
         contentTitle.textContent = items[index].title;
         contentHeaderActions.innerHTML = "";
-        pagingText.textContent = (index + 1) + "/" + totalItems;
+        pagingText.textContent = index + 1 + "/" + totalItems;
         modalContentPrev.disabled = index === 0;
         modalContentNext.disabled = index === totalItems - 1;
 
@@ -614,9 +676,11 @@ export default apiInitializer("1.24.0", (api) => {
 
           contentHeaderActions.innerHTML =
             '<a href="' +
-            items[index].href +
-            '" target="_blank" rel="noopener noreferrer" class="btn btn-primary">' +
-            externalLinkIcon +
+            escapeHtml(items[index].href) +
+            '" target="_blank" rel="noopener noreferrer" title="' +
+            escapeHtml(EXTERNAL_LINK_TITLE) +
+            '" class="btn btn-primary collections-open-external-button">' +
+            externalLinkIconSvg +
             "Open in New Tab" +
             "</a>";
         } else {
@@ -647,6 +711,7 @@ export default apiInitializer("1.24.0", (api) => {
           }
         }
 
+        bindExternalLinkButtons(modal);
         updatePageNavText(index);
       }, SCROLL_THROTTLE_MS);
 
@@ -708,6 +773,8 @@ export default apiInitializer("1.24.0", (api) => {
         }
       });
 
+      bindExternalLinkButtons(modal);
+
       if (!document.body.hasAttribute(INIT_FLAG)) {
         document.body.setAttribute(INIT_FLAG, "true");
 
@@ -731,7 +798,11 @@ export default apiInitializer("1.24.0", (api) => {
           }
 
           if (modalVisible) {
-            if (e.key === "ArrowLeft" && currentModalPrev && !currentModalPrev.disabled) {
+            if (
+              e.key === "ArrowLeft" &&
+              currentModalPrev &&
+              !currentModalPrev.disabled
+            ) {
               lastKeyPress = now;
               e.preventDefault();
               currentModalPrev.click();
@@ -752,7 +823,11 @@ export default apiInitializer("1.24.0", (api) => {
               }
             }
           } else {
-            if (e.key === "ArrowLeft" && currentPrevBtn && !currentPrevBtn.disabled) {
+            if (
+              e.key === "ArrowLeft" &&
+              currentPrevBtn &&
+              !currentPrevBtn.disabled
+            ) {
               lastKeyPress = now;
               e.preventDefault();
               currentPrevBtn.click();
