@@ -123,9 +123,10 @@
   flex-direction: column;
   width: 100%;
   max-width: 800px;
-  height: 90vh;
+  height: 85vh;
   overflow: hidden;
-  padding: 1em;
+  /* padding: 1em; */
+  padding: 1em 1em 1.5em;
 
   @media (prefers-reduced-motion: no-preference) {
     animation: slideUp 300ms ease-out;
