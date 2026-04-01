@@ -360,8 +360,8 @@ export default apiInitializer("1.24.0", (api) => {
             escapeHtml(collectionDesc) +
             "</p>"
           : "") +
-        '<div class="user-navigation user-navigation-secondary topic-slider-container">' +
-        '<div class="horizontal-overflow-nav has-scroll topic-slider">' +
+        '<div class="user-navigation user-navigation-secondary">' +
+        '<div class="horizontal-overflow-nav has-scroll">' +
         items.map(sliderButtonHtml).join("") +
         "</div>" +
         "</div>" +
