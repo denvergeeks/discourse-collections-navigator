@@ -249,8 +249,8 @@ export default apiInitializer("1.24.0", (api) => {
                     }" data-index="${idx}" title="${item.title}">
                       ${
                         item.external
-                          ? `<svg class="fa d-icon d-icon-arrow-up-right-from-square svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                               <use href="#arrow-up-right-from-square"></use>
+                          ? `<svg class="fa d-icon d-icon-arrow-right svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                               <use href="#arrow-right"></use>
                              </svg> `
                           : ""
                       }${item.title}
