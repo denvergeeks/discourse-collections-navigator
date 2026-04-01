@@ -442,32 +442,32 @@ export default apiInitializer("1.24.0", (api) => {
       const setupIframeHandlers = (container) => {
         const iframe = container.querySelector(".external-topic-iframe");
         const loadingDiv = container.querySelector(".iframe-loading");
-        const errorDiv = container.querySelector(".iframe-error");
+//        const errorDiv = container.querySelector(".iframe-error");
 
         if (iframe) {
           iframe.addEventListener("load", () => {
             if (loadingDiv) loadingDiv.style.display = "none";
           });
-          iframe.addEventListener("error", () => {
-            if (loadingDiv) loadingDiv.style.display = "none";
-            if (errorDiv) errorDiv.style.display = "flex";
-            iframe.style.display = "none";
-          });
+//          iframe.addEventListener("error", () => {
+//            if (loadingDiv) loadingDiv.style.display = "none";
+//            if (errorDiv) errorDiv.style.display = "flex";
+//            iframe.style.display = "none";
+//          });
 
           // timeout fallback
-          setTimeout(() => {
-            if (loadingDiv && loadingDiv.style.display !== "none") {
-              try {
+//          setTimeout(() => {
+//            if (loadingDiv && loadingDiv.style.display !== "none") {
+//              try {
                 // access to contentWindow will throw if blocked
                 // eslint-disable-next-line no-unused-expressions
-                iframe.contentWindow.location.href;
-              } catch (e) {
-                loadingDiv.style.display = "none";
-                if (errorDiv) errorDiv.style.display = "flex";
-                iframe.style.display = "none";
-              }
-            }
-          }, 5000);
+//                iframe.contentWindow.location.href;
+//              } catch (e) {
+//                loadingDiv.style.display = "none";
+//                if (errorDiv) errorDiv.style.display = "flex";
+//                iframe.style.display = "none";
+//              }
+//            }
+//          }, 5000);
         }
       };
 
