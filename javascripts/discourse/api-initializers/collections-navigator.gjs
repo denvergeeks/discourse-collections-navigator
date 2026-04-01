@@ -137,6 +137,46 @@ export default apiInitializer("1.24.0", (api) => {
         };
       }
 
+      // ── IFRAME RESIZE UTILITY ────────────────────────────────────────────────
+      // Adapted from the north-arrow iframe sizing pattern.
+      // Calculates the wrapper's offset from the viewport and sizes the iframe
+      // to fill from that point to the bottom of the visible area.
+      //
+      // The wrapper must have  position:relative  (set via CSS on
+      // .iframe-container) so the absolutely-positioned iframe is contained.
+      // The wrapper starts with  visibility:hidden  (CSS) and this function
+      // reveals it after the first successful layout calculation.
+      function adjustIframe(iframe, wrapper) {
+        if (!iframe || !wrapper) {
+          return;
+        }
+
+        const rect = wrapper.getBoundingClientRect();
+        // offsetTop relative to the document (accounts for page scroll)
+        const offsetTop = rect.top + window.scrollY;
+        // offsetLeft relative to the document – used to counter any
+        // left inset so the iframe aligns flush with its container edge
+        const offsetLeft = rect.left + window.scrollX;
+
+        // Height: fill from wrapper's top edge to the bottom of the viewport
+        wrapper.style.height = "calc(100vh - " + offsetTop + "px)";
+
+        // Position the iframe absolutely inside the wrapper.
+        // We do NOT break out to full page width here (the modal is a fixed
+        // overlay so there is no need), but we do cancel any left inset so
+        // the iframe sits flush against the container's left edge.
+        iframe.style.position = "absolute";
+        iframe.style.top = "0";
+        iframe.style.left = offsetLeft > 0 ? "-" + offsetLeft + "px" : "0";
+        iframe.style.width = wrapper.offsetWidth + "px";
+        iframe.style.height = "100%";
+        iframe.style.border = "none";
+        iframe.style.display = "block";
+
+        // Reveal the wrapper now that sizing is correct
+        wrapper.style.visibility = "visible";
+      }
+
       // Run cooked decorators on dynamically injected content
       const enhanceCooked = (element) => {
         if (!element) {
@@ -315,7 +355,8 @@ export default apiInitializer("1.24.0", (api) => {
       const modalContentNext = modal.querySelector(".modal-content-next");
       const pagingText = modal.querySelector(".paging-text");
       const topicSliderContainer = modal.querySelector(".topic-slider-container");
-      const topicSlider = modal.querySelector(".topic-slider");
+      // topicSlider is referenced via topicSliderContainer only; kept for future use
+      // const topicSlider = modal.querySelector(".topic-slider");
 
       let selectedIndex = currentIndex;
       let sidebarOpen = false;
@@ -353,7 +394,7 @@ export default apiInitializer("1.24.0", (api) => {
       const updatePageContent = (index) => {
         if (index < 0 || index >= totalItems) return;
         if (items[index].external) {
-          // Do not inline‑navigate to external links
+          // Do not inline-navigate to external links
           return;
         }
 
@@ -405,6 +446,10 @@ export default apiInitializer("1.24.0", (api) => {
       };
 
       // ---- modal content update (internal & external) ----
+
+      // Build the HTML shell for an external URL panel.
+      // The iframe starts with display:none; adjustIframe() will reveal it
+      // and size it correctly once the load event fires.
       const loadExternalContent = (url) => {
         return `
           <div class="external-url-content">
@@ -432,36 +477,64 @@ export default apiInitializer("1.24.0", (api) => {
         `;
       };
 
+      // Wire up load/error/resize behaviour for every .external-topic-iframe
+      // found inside `container`.  Uses adjustIframe() for all sizing so that
+      // iframe dimensions always derive from live viewport measurements.
       const setupIframeHandlers = (container) => {
         const iframe = container.querySelector(".external-topic-iframe");
         const loadingDiv = container.querySelector(".iframe-loading");
-//        const errorDiv = container.querySelector(".iframe-error");
+        const wrapper = container.querySelector(".iframe-container");
 
-        if (iframe) {
-          iframe.addEventListener("load", () => {
-            if (loadingDiv) loadingDiv.style.display = "none";
-          });
-//          iframe.addEventListener("error", () => {
-//            if (loadingDiv) loadingDiv.style.display = "none";
-//            if (errorDiv) errorDiv.style.display = "flex";
-//            iframe.style.display = "none";
-//          });
-
-          // timeout fallback
-//          setTimeout(() => {
-//            if (loadingDiv && loadingDiv.style.display !== "none") {
-//              try {
-                // access to contentWindow will throw if blocked
-                // eslint-disable-next-line no-unused-expressions
-//                iframe.contentWindow.location.href;
-//              } catch (e) {
-//                loadingDiv.style.display = "none";
-//                if (errorDiv) errorDiv.style.display = "flex";
-//                iframe.style.display = "none";
-//              }
-//            }
-//          }, 5000);
+        if (!iframe) {
+          return;
         }
+
+        // Throttled resize handler scoped to this specific iframe instance
+        const onResize = throttle(() => adjustIframe(iframe, wrapper), 100);
+
+        const onLoad = () => {
+          if (loadingDiv) {
+            loadingDiv.style.display = "none";
+          }
+          // Size the iframe using live viewport measurements, then
+          // keep it in sync as the window is resized.
+          adjustIframe(iframe, wrapper);
+          window.addEventListener("resize", onResize);
+        };
+
+        const onError = () => {
+          if (loadingDiv) {
+            loadingDiv.style.display = "none";
+          }
+          // Ensure wrapper is at least visible so the error message shows
+          if (wrapper) {
+            wrapper.style.visibility = "visible";
+          }
+          iframe.style.display = "none";
+          // Remove resize listener – sizing is irrelevant if the iframe failed
+          window.removeEventListener("resize", onResize);
+        };
+
+        iframe.addEventListener("load", onLoad);
+        iframe.addEventListener("error", onError);
+
+        // Fallback: some hosts block iframes silently (no error event).
+        // After 5 s, check if the loading indicator is still visible and
+        // attempt a same-origin contentDocument access; a SecurityError
+        // means the frame was blocked by X-Frame-Options / CSP.
+        setTimeout(() => {
+          if (loadingDiv && loadingDiv.style.display !== "none") {
+            try {
+              // Will throw SecurityError if cross-origin and blocked
+              // eslint-disable-next-line no-unused-expressions
+              iframe.contentWindow.location.href;
+              // No throw → frame loaded (possibly empty); treat as success
+              onLoad();
+            } catch (e) {
+              onError();
+            }
+          }
+        }, 5000);
       };
 
       const updateModalContent = throttle((index) => {
