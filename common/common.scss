@@ -685,13 +685,14 @@
    ============================================ */
 
 .cooked-content.external-url-content-wrapper {
-  flex: 0 0 auto !important;
-  overflow: visible !important;
+  /* flex: 0 0 auto !important; */
+  /* overflow: visible !important; */
   height: auto !important;
   max-height: none !important;
   padding: 0 !important;
 }
 
+/*
 .external-url-content {
   height: 70vh;
   max-height: 80vh;
@@ -703,6 +704,7 @@
   @media (max-width: 640px) { height: 60vh !important; }
 
 }
+*/
 
 .external-url-header {
   flex-shrink: 0;
