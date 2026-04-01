@@ -927,9 +927,16 @@ display:none;
           background: var(--hover-shadow);
 }
 
+a.collections-external-link-button.in-slider {
+          background: var(--hover-shadow);
+}
+
 .collections-external-link-button.in-sidebar {
   margin-inline-start: auto;
   flex: 0 0 auto;
+}
+
+a.collections-external-link-button.in-sidebar {
           background: var(--hover-shadow);
 }
 
