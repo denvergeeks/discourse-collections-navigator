@@ -379,7 +379,10 @@ export default apiInitializer("1.24.0", (api) => {
 
 
         
-        
+          '<div class="topic-slider-container">' +
+
+
+
 
         '<button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ' +
         (currentIndex === 0 ? "disabled" : "") +
@@ -391,16 +394,12 @@ export default apiInitializer("1.24.0", (api) => {
         "</button>" +
 
 
-
         
-        
-          '<div class="topic-slider-container">' +
           '<div class="topic-slider">' +
 // To display as a brick wall of buttons
 //        '<div class="user-navigation user-navigation-secondary">' +
 //        '<div class="horizontal-overflow-nav has-scroll">' +
         items.map(sliderButtonHtml).join("") +
-        "</div>" +
         "</div>" +
 
 
@@ -415,6 +414,15 @@ export default apiInitializer("1.24.0", (api) => {
         '<use href="#arrow-right"></use>' +
         "</svg>" +
         "</button>" +
+
+
+        
+        "</div>" +
+
+
+
+
+
 
 
 
