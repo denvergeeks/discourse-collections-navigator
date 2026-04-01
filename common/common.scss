@@ -851,6 +851,7 @@
 
   .content-header-actions {
     display: flex;
+     display:none;
     gap: var(--space-8);
 
     .btn {
