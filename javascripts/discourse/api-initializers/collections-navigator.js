@@ -374,7 +374,7 @@ export default apiInitializer("1.24.0", (api) => {
         "</svg>" +
         "</button>" +
         "</div>" +
-        "</div>";
+
 
 
 
