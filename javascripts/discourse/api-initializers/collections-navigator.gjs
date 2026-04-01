@@ -452,7 +452,6 @@ export default apiInitializer("1.24.0", (api) => {
       // and size it correctly once the load event fires.
       const loadExternalContent = (url) => {
         return `
-          <div class="external-url-content">
             <div class="external-url-header">
               <h4>
                 <a href="${url}" target="_blank" rel="noopener noreferrer" class="external-url-link">
@@ -473,7 +472,6 @@ export default apiInitializer("1.24.0", (api) => {
                 title="External content: ${url}"
               ></iframe>
             </div>
-          </div>
         `;
       };
 
