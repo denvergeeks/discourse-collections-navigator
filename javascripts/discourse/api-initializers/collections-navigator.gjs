@@ -462,7 +462,6 @@ export default apiInitializer("1.24.0", (api) => {
                 </a>
               </h4>
             </div>
-            <div class="iframe-container">
               <div class="iframe-loading">Loading external content...</div>
               <iframe
                 src="${url}"
@@ -471,7 +470,6 @@ export default apiInitializer("1.24.0", (api) => {
                 loading="lazy"
                 title="External content: ${url}"
               ></iframe>
-            </div>
         `;
       };
 
