@@ -697,10 +697,11 @@
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-
+/*
   @media (max-height: 700px) { height: 60vh; }
   @media (max-width: 768px) { height: 65vh; }
   @media (max-width: 640px) { height: 60vh !important; }
+*/
 }
 
 .external-url-header {
@@ -861,7 +862,9 @@
   to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
+/*
 .frame-container,
 .external-url-content {
    height: 100%;
 }
+*/
