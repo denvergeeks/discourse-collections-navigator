@@ -427,7 +427,6 @@ export default apiInitializer("1.24.0", (api) => {
                 loading="lazy"
                 title="External content: ${url}"
               ></iframe>
-
             </div>
           </div>
         `;
