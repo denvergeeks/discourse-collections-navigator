@@ -924,20 +924,21 @@ display:none;
   inline-size: 1.85rem;
   block-size: 1.85rem;
   margin-inline-start: 0.45rem;
-          background: var(--hover-shadow);
+          background: var(--d-sidebar-highlight-background);
 }
 
 a.collections-external-link-button.in-slider {
-          background: var(--hover-shadow);
+          background: var(--d-sidebar-highlight-background);
 }
 
 .collections-external-link-button.in-sidebar {
   margin-inline-start: auto;
   flex: 0 0 auto;
+          background: var(--d-sidebar-highlight-background);
 }
 
 a.collections-external-link-button.in-sidebar {
-          background: var(--hover-shadow);
+          background: var(--d-sidebar-highlight-background);
 }
 
 .collection-item-link {
