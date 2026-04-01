@@ -383,7 +383,7 @@ export default apiInitializer("1.24.0", (api) => {
 
 
 
-
+'<span class="prev-span">' +
         '<button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ' +
         (currentIndex === 0 ? "disabled" : "") +
         ">" +
@@ -392,7 +392,7 @@ export default apiInitializer("1.24.0", (api) => {
         "</svg>" +
         "Prev" +
         "</button>" +
-
+"</span>" +
 
         
           '<div class="topic-slider">' +
@@ -405,7 +405,7 @@ export default apiInitializer("1.24.0", (api) => {
 
 
 
-
+'<span class="next-span">' +
         '<button class="btn btn--secondary modal-content-next" title="Next item" type="button" ' +
         (currentIndex === totalItems - 1 ? "disabled" : "") +
         ">" +
@@ -414,7 +414,7 @@ export default apiInitializer("1.24.0", (api) => {
         '<use href="#arrow-right"></use>' +
         "</svg>" +
         "</button>" +
-
+"</span>" +
 
         
         "</div>" +
