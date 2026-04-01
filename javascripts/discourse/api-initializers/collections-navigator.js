@@ -345,14 +345,12 @@ export default apiInitializer("1.24.0", (api) => {
       modal.className = "collections-nav-modal-overlay";
       modal.innerHTML =
         '<div class="collections-nav-modal collections-modal-with-content">' +
-        '<div class="modal-header">' +
-        '<button class="modal-sidebar-toggle btn btn-flat btn--toggle no-text btn-icon narrow-desktop" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">' +
-        '<svg class="fa d-icon d-icon-bars svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
-        '<use href="#bars"></use>' +
-        "</svg>" +
-        "</button>" +
 
 
+
+
+
+        
         '<div class="modal-nav-footer">' +
         '<button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ' +
         (currentIndex === 0 ? "disabled" : "") +
@@ -377,7 +375,25 @@ export default apiInitializer("1.24.0", (api) => {
         "</button>" +
         "</div>" +
         "</div>";
+
+
+
       
+
+
+
+
+        
+        '<div class="modal-header">' +
+        '<button class="modal-sidebar-toggle btn btn-flat btn--toggle no-text btn-icon narrow-desktop" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">' +
+        '<svg class="fa d-icon d-icon-bars svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
+        '<use href="#bars"></use>' +
+        "</svg>" +
+        "</button>" +
+
+
+
+
         
         '<div class="modal-header-content">' +
         '<h2 class="modal-title">' +
