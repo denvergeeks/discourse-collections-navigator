@@ -197,7 +197,7 @@ export default apiInitializer("1.24.0", (api) => {
       navBar.className = "collections-item-nav-bar collections-nav-injected";
       navBar.innerHTML = `
         <button class="btn btn--primary collections-nav-toggle" title="Open collection navigator" type="button">
-          <svg class="fa d- d--collection-pip svg- fa-width-auto prefix- svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+          <svg class="fa d-icon d-icon-collection-pip svg-icon fa-width-auto prefix-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
             <use href="#collection-pip"></use>
           </svg>
           <span class="nav-text">${collectionName}: ${currentItem.title} (${currentIndex + 1}/${totalItems})</span>
@@ -206,14 +206,14 @@ export default apiInitializer("1.24.0", (api) => {
           <button class="btn btn--secondary collections-nav-prev" ${
             currentIndex === 0 ? "disabled" : ""
           } title="Previous (arrow key)" type="button">
-            <svg class="fa d- d--arrow-left svg- fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
               <use href="#arrow-left"></use>
             </svg>
           </button>
           <button class="btn btn--secondary collections-nav-next" ${
             currentIndex === totalItems - 1 ? "disabled" : ""
           } title="Next (arrow key)" type="button">
-            <svg class="fa d- d--arrow-right svg- fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
               <use href="#arrow-right"></use>
             </svg>
           </button>
@@ -227,8 +227,8 @@ export default apiInitializer("1.24.0", (api) => {
       modal.innerHTML = `
         <div class="collections-nav-modal collections-modal-with-content">
           <div class="modal-header">
-            <button class="modal-sidebar-toggle btn btn-flat btn--toggle no-text btn- narrow-desktop" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">
-              <svg class="fa d- d--bars svg- svg-string" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <button class="modal-sidebar-toggle btn btn-flat btn--toggle no-text btn-icon narrow-desktop" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">
+              <svg class="fa d-icon d-icon-bars svg-icon svg-string" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
                 <use href="#bars"></use>
               </svg>
             </button>
@@ -249,7 +249,7 @@ export default apiInitializer("1.24.0", (api) => {
                     }" data-index="${idx}" title="${item.title}">
                       ${
                         item.external
-                          ? `<svg class="fa d- d--arrow-right svg- svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                          ? `<svg class="fa d-icon d-icon-arrow-right svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
                                <use href="#arrow-right"></use>
                              </svg> `
                           : ""
@@ -262,7 +262,7 @@ export default apiInitializer("1.24.0", (api) => {
               </div>
             </div>
             <button class="modal-close-btn" aria-label="Close modal" type="button">
-              <span class="d- d--times"></span>
+              <span class="d-icon d-icon-times"></span>
             </button>
           </div>
           <div class="modal-body-split">
@@ -281,12 +281,12 @@ export default apiInitializer("1.24.0", (api) => {
                       <span class="item-title">${item.title}</span>
                       ${
                         idx === currentIndex
-                          ? '<span class="d- d--check"></span>'
+                          ? '<span class="d-icon d-icon-check"></span>'
                           : ""
                       }
                       ${
                         item.external
-                          ? '<span class="d-icon d-icon-arrow-up-right-from-square"></span>'
+                          ? '<span class="d-icon d-icon-external-link-alt"></span>'
                           : ""
                       }
                     </div>
@@ -456,8 +456,8 @@ export default apiInitializer("1.24.0", (api) => {
               <h4>
                 <a href="${url}" target="_blank" rel="noopener noreferrer" class="external-url-link">
                   ${url.replace(/^https?:\/\//, "")}
-                  <svg class="fa d-icon d-icon-arrow-up-right-from-square svg-icon svg-string" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                    <use href="#arrow-up-right-from-square"></use>
+                  <svg class="fa d-icon d-icon-external-link-alt svg-icon svg-string" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                    <use href="#external-link-alt"></use>
                   </svg>
                 </a>
               </h4>
@@ -560,8 +560,8 @@ export default apiInitializer("1.24.0", (api) => {
 
           contentHeaderActions.innerHTML = `
             <a href="${items[index].href}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
-              <svg class="fa d-icon d-icon-arrow-up-right-from-square svg-icon" aria-hidden="true">
-                <use href="#arrow-up-right-from-square"></use>
+              <svg class="fa d-icon d-icon-external-link-alt svg-icon" aria-hidden="true">
+                <use href="#external-link-alt"></use>
               </svg>
               Open in New Tab
             </a>
