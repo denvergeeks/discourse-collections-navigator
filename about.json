@@ -4,10 +4,12 @@
   "license_url": "https://github.com/denvergeeks/discourse-collections-navigator/blob/main/LICENSE",
   "about_url": "https://github.com/denvergeeks/discourse-collections-navigator",
   "authors": "@denvergeeks",
-  "theme_version": "1.0.0",
+  "theme_version": "2.0.0",
   "minimum_discourse_version": "3.4.0",
   "maximum_discourse_version": null,
-  "assets": {},
+  "assets": {
+    "icons-sprite": "/assets/my-icons.svg"
+  },
   "color_schemes": {},
   "modifiers": {},
   "learn_more": "https://meta.discourse.org/t/beginners-guide-to-using-discourse-themes/91966"
