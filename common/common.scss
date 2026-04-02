@@ -1,3 +1,10 @@
+:root {
+  --collections-sidebar-width: 320px;
+  --collections-sidebar-min-width: 240px;
+  --collections-sidebar-max-width: min(520px, 45vw);
+  --collections-resizer-width: 10px;
+}
+
 .collections-nav-fallback-mount {
   width: 100%;
 }
@@ -359,17 +366,54 @@
 
 .collections-nav-modal .modal-items-sidebar {
   display: none;
-  flex: 0 0 320px;
-  width: 320px;
-  min-width: 320px;
-  overflow: auto;
+  flex: 0 0 var(--collections-sidebar-width);
+  width: var(--collections-sidebar-width);
+  min-width: 0;
+  max-width: none;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.75rem;
   border-right: 1px solid var(--primary-low-mid);
   background: var(--secondary-very-high);
+  box-sizing: border-box;
 }
 
 .collections-nav-modal.collections-sidebar-open .modal-items-sidebar {
   display: block;
+}
+
+.collections-nav-modal .collections-sidebar-resizer {
+  display: none;
+  flex: 0 0 var(--collections-resizer-width);
+  width: var(--collections-resizer-width);
+  min-width: var(--collections-resizer-width);
+  cursor: col-resize;
+  position: relative;
+  background: transparent;
+  touch-action: none;
+}
+
+.collections-nav-modal.collections-sidebar-open .collections-sidebar-resizer {
+  display: block;
+}
+
+.collections-nav-modal .collections-sidebar-resizer::before {
+  content: "";
+  position: absolute;
+  top: 0.75rem;
+  bottom: 0.75rem;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--primary-low-mid);
+  transition: background-color 0.15s ease, width 0.15s ease;
+}
+
+.collections-nav-modal .collections-sidebar-resizer:hover::before,
+.collections-nav-modal.is-resizing .collections-sidebar-resizer::before {
+  width: 3px;
+  background: var(--tertiary);
 }
 
 .collections-nav-modal .collection-items-list {
@@ -379,11 +423,13 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  min-width: 0;
 }
 
 .collections-nav-modal .collection-item {
   margin: 0;
   padding: 0;
+  min-width: 0;
 }
 
 .collections-nav-modal .collection-item-link {
@@ -392,6 +438,8 @@
   align-items: center;
   gap: 0.6rem;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 0.75rem 0.85rem;
   border: 1px solid var(--primary-low-mid);
   border-radius: 12px;
@@ -689,6 +737,10 @@
     max-height: 38vh;
     border-right: 0;
     border-bottom: 1px solid var(--primary-low-mid);
+  }
+
+  .collections-nav-modal .collections-sidebar-resizer {
+    display: none !important;
   }
 
   .collections-nav-modal .content-header {
