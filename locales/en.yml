@@ -1,5 +1,13 @@
 en:
   theme_metadata:
-    description: "TODO"
-    settings:
-      example_setting: "A description of a setting."
+    description: "Adds a responsive collections navigator UI on top of the discourse-collections plugin"
+
+  collections_navigator:
+    open: "Open collection navigator"
+    previous: "Previous"
+    next: "Next"
+    open_external: "Open in New Tab"
+    open_external_window: "Click to Open in New Browser Window"
+    loading: "Loading..."
+    error_loading: "Error loading"
+    no_content: "No content"
