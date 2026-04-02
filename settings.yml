@@ -1,2 +1,7 @@
-example_setting:
+collections_navigator_enabled:
   default: true
+  client: true
+
+collections_navigator_debug:
+  default: false
+  client: true
