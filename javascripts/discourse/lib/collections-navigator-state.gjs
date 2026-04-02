@@ -708,8 +708,8 @@ function renderModalChrome(api) {
         </div>
 
         <button class="modal-close-btn" aria-label="Close modal" type="button">
-          <svg class="fa d-icon d-icon-times svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-            <use href="#times"></use>
+          <svg class="fa d-icon d-icon-xmark svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <use href="#xmark"></use>
           </svg>
         </button>
       </div>
