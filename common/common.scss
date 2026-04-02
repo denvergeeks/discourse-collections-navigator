@@ -509,9 +509,9 @@
 .collections-nav-modal .external-topic-iframe {
   display: block;
   width: 100%;
-  min-height: 65vh;
+  min-height: 0;
   border: 1px solid var(--primary-low-mid);
-  border-radius: 12px;
+  /* border-radius: 12px; */
   background: var(--secondary);
 }
 
