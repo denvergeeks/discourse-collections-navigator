@@ -665,3 +665,8 @@
     order: -1;
   }
 }
+
+code {
+  /* overflow-wrap: anywhere; */
+  overflow-wrap: break-word;
+}
