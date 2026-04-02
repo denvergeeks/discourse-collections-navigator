@@ -651,8 +651,8 @@ function renderModalChrome(api) {
           type="button"
           title="Toggle sidebar"
         >
-          <svg class="fa d-icon d-icon-bars svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-            <use href="#bars"></use>
+          <svg class="fa d-icon d-icon-discourse-sidebar svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <use href="#discourse-sidebar"></use>
           </svg>
         </button>
 
