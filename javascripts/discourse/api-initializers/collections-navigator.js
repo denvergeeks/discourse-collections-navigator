@@ -363,8 +363,8 @@ export default apiInitializer("1.24.0", (api) => {
         
         '<div class="modal-header">' +
         '<button class="modal-sidebar-toggle btn btn-flat btn--toggle no-text btn-icon narrow-desktop" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">' +
-        '<svg class="fa d-icon d-icon-discourse-sidebars svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
-        '<use href="#discourse-sidebars"></use>' +
+        '<svg class="fa d-icon d-icon-discourse-sidebar svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
+        '<use href="#discourse-sidebar"></use>' +
         "</svg>" +
         "</button>" +
 
