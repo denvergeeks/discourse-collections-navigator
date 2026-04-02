@@ -12,19 +12,33 @@ export default class CollectionsNavBar extends Component {
     return getCollectionsNavigatorState();
   }
 
-  get shouldRenderBar() {
-    return this.state?.ready;
+//  get shouldRenderBar() {
+//    return this.state?.ready;
+//  }
+
+get shouldRenderBar() {
+  return true;
+}
+
+//  get navText() {
+//    if (!this.shouldRenderBar) {
+//      return "";
+//    }
+//
+//    return `${this.state.collectionName}: ${this.state.currentItem.title} (${
+//      this.state.currentIndex + 1
+//    }/${this.state.totalItems})`;
+//  }
+
+get navText() {
+  if (!this.state?.ready) {
+    return "Collections Navigator test render";
   }
 
-  get navText() {
-    if (!this.shouldRenderBar) {
-      return "";
-    }
-
-    return `${this.state.collectionName}: ${this.state.currentItem.title} (${
-      this.state.currentIndex + 1
-    }/${this.state.totalItems})`;
-  }
+  return `${this.state.collectionName}: ${this.state.currentItem.title} (${
+    this.state.currentIndex + 1
+  }/${this.state.totalItems})`;
+}
 
   get isFirst() {
     return !this.shouldRenderBar || this.state.currentIndex <= 0;
