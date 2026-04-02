@@ -16,9 +16,14 @@ let eventsBound = false;
 let keyboardBound = false;
 let fallbackMountBound = false;
 
+const MOBILE_BREAKPOINT = 768;
 const KEYBOARD_THROTTLE_MS = 150;
 const SCROLL_THROTTLE_MS = 50;
 const EXTERNAL_LINK_TITLE = "Click to Open in New Browser Window";
+
+function isMobileViewport() {
+  return window.innerWidth < MOBILE_BREAKPOINT;
+}
 
 function resetState() {
   navigatorState.ready = false;
@@ -203,12 +208,12 @@ function getCurrentIndex(items) {
   const currentTopicId = getCurrentTopicIdFromPage();
 
   if (currentTopicId) {
-    const indexByTopicId = items.findIndex(
+    const idx = items.findIndex(
       (item) => !item.external && item.topicId === currentTopicId
     );
 
-    if (indexByTopicId > -1) {
-      return indexByTopicId;
+    if (idx > -1) {
+      return idx;
     }
   }
 
@@ -280,10 +285,13 @@ function renderFallbackNavBar() {
     return;
   }
 
-  if (!navigatorState.ready || !navigatorState.currentItem) {
+  if (!isMobileViewport() || !navigatorState.ready || !navigatorState.currentItem) {
     mount.innerHTML = "";
+    mount.style.display = "none";
     return;
   }
+
+  mount.style.display = "";
 
   mount.innerHTML = `
     <div class="collections-item-nav-bar collections-nav-injected collections-nav-fallback-render">
@@ -633,7 +641,7 @@ function renderModalChrome(api) {
   }
 }
 
-function navigateToInternalItem(api, index) {
+function navigateToInternalItem(index) {
   if (index < 0 || index >= navigatorState.totalItems) {
     return;
   }
@@ -752,10 +760,8 @@ function bindDelegatedModalEvents(api) {
 
     const sidebarToggle = e.target.closest(".modal-sidebar-toggle");
     if (sidebarToggle) {
-      const sidebar = modal.querySelector(".modal-items-sidebar");
-      const sliderContainer = modal.querySelector(".topic-slider-container");
-      sidebar?.classList.toggle("collapsed");
-      sliderContainer?.classList.toggle("collapsed");
+      const modalRoot = modal.querySelector(".collections-nav-modal");
+      modalRoot?.classList.toggle("collections-sidebar-open");
       return;
     }
 
@@ -912,7 +918,7 @@ export function bindCollectionsNavigatorEvents(api) {
         return;
       }
 
-      navigateToInternalItem(api, navigatorState.currentIndex - 1);
+      navigateToInternalItem(navigatorState.currentIndex - 1);
     });
 
     document.addEventListener("collections:navigator:next", () => {
@@ -923,7 +929,7 @@ export function bindCollectionsNavigatorEvents(api) {
         return;
       }
 
-      navigateToInternalItem(api, navigatorState.currentIndex + 1);
+      navigateToInternalItem(navigatorState.currentIndex + 1);
     });
   }
 
@@ -966,16 +972,23 @@ export function bindCollectionsNavigatorEvents(api) {
         if (e.key === "ArrowLeft" && navigatorState.currentIndex > 0) {
           lastKeyPress = now;
           e.preventDefault();
-          navigateToInternalItem(api, navigatorState.currentIndex - 1);
+          navigateToInternalItem(navigatorState.currentIndex - 1);
         } else if (
           e.key === "ArrowRight" &&
           navigatorState.currentIndex < navigatorState.totalItems - 1
         ) {
           lastKeyPress = now;
           e.preventDefault();
-          navigateToInternalItem(api, navigatorState.currentIndex + 1);
+          navigateToInternalItem(navigatorState.currentIndex + 1);
         }
       }
     });
+
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        renderFallbackNavBar();
+      }, 100)
+    );
   }
 }
