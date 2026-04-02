@@ -4,6 +4,7 @@ import {
   bindCollectionsNavigatorEvents,
   ensureCollectionsNavigatorModal,
   initializeCollectionsNavigatorState,
+  refreshCollectionsNavigatorUI,
 } from "../lib/collections-navigator-state";
 
 export default apiInitializer("1.24.0", (api) => {
@@ -18,6 +19,7 @@ export default apiInitializer("1.24.0", (api) => {
       initializeCollectionsNavigatorState(api);
       ensureCollectionsNavigatorModal(api);
       bindCollectionsNavigatorEvents(api);
-    }, 300);
+      refreshCollectionsNavigatorUI(api);
+    }, 400);
   });
 });
