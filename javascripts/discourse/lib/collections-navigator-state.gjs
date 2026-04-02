@@ -16,14 +16,9 @@ let eventsBound = false;
 let keyboardBound = false;
 let fallbackMountBound = false;
 
-const MOBILE_BREAKPOINT = 768;
 const KEYBOARD_THROTTLE_MS = 150;
 const SCROLL_THROTTLE_MS = 50;
 const EXTERNAL_LINK_TITLE = "Click to Open in New Browser Window";
-
-function isMobileViewport() {
-  return window.innerWidth < MOBILE_BREAKPOINT;
-}
 
 function resetState() {
   navigatorState.ready = false;
@@ -266,16 +261,32 @@ function ensureFallbackMountElement() {
     return mount;
   }
 
+  const topicTitle = document.querySelector("#topic-title");
+  const mainOutlet = document.querySelector("#main-outlet");
   const postsContainer = document.querySelector(".posts");
-  if (!postsContainer?.parentNode) {
-    return null;
+
+  if (topicTitle?.parentNode) {
+    mount = document.createElement("div");
+    mount.className = "collections-nav-fallback-mount";
+    topicTitle.insertAdjacentElement("afterend", mount);
+    return mount;
   }
 
-  mount = document.createElement("div");
-  mount.className = "collections-nav-fallback-mount";
-  postsContainer.parentNode.insertBefore(mount, postsContainer);
+  if (postsContainer?.parentNode) {
+    mount = document.createElement("div");
+    mount.className = "collections-nav-fallback-mount";
+    postsContainer.parentNode.insertBefore(mount, postsContainer);
+    return mount;
+  }
 
-  return mount;
+  if (mainOutlet) {
+    mount = document.createElement("div");
+    mount.className = "collections-nav-fallback-mount";
+    mainOutlet.prepend(mount);
+    return mount;
+  }
+
+  return null;
 }
 
 function renderFallbackNavBar() {
@@ -285,13 +296,10 @@ function renderFallbackNavBar() {
     return;
   }
 
-  if (!isMobileViewport() || !navigatorState.ready || !navigatorState.currentItem) {
+  if (!navigatorState.ready || !navigatorState.currentItem) {
     mount.innerHTML = "";
-    mount.style.display = "none";
     return;
   }
-
-  mount.style.display = "";
 
   mount.innerHTML = `
     <div class="collections-item-nav-bar collections-nav-injected collections-nav-fallback-render">
@@ -641,17 +649,53 @@ function renderModalChrome(api) {
   }
 }
 
+function clickExistingCollectionLink(item) {
+  if (!item?.href) {
+    return false;
+  }
+
+  const links = document.querySelectorAll(".discourse-collections-sidebar-panel .collection-sidebar-link");
+
+  const match = Array.from(links).find((link) => {
+    const href = link.getAttribute("href");
+    if (!href) {
+      return false;
+    }
+
+    try {
+      const a = new URL(href, window.location.origin);
+      const b = new URL(item.href, window.location.origin);
+      return a.pathname === b.pathname;
+    } catch {
+      return href === item.href;
+    }
+  });
+
+  if (!match) {
+    return false;
+  }
+
+  match.click();
+  return true;
+}
+
 function navigateToInternalItem(index) {
   if (index < 0 || index >= navigatorState.totalItems) {
     return;
   }
 
   const item = navigatorState.items[index];
-  if (!item || item.external || !item.href) {
+  if (!item || item.external) {
     return;
   }
 
-  window.location.href = item.href;
+  if (clickExistingCollectionLink(item)) {
+    return;
+  }
+
+  if (item.href) {
+    window.location.pathname = new URL(item.href, window.location.origin).pathname;
+  }
 }
 
 const updateModalContent = throttle((api, index) => {
