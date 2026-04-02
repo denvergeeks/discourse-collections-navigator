@@ -4,49 +4,31 @@ import { on } from "@ember/modifier";
 import { getCollectionsNavigatorState } from "../lib/collections-navigator-state";
 
 export default class CollectionsNavBar extends Component {
-  static shouldRender() {
-    return true;
-  }
-
   get state() {
     return getCollectionsNavigatorState();
   }
 
-//  get shouldRenderBar() {
-//    return this.state?.ready;
-//  }
-
-get shouldRenderBar() {
-  return true;
-}
-
-//  get navText() {
-//    if (!this.shouldRenderBar) {
-//      return "";
-//    }
-//
-//    return `${this.state.collectionName}: ${this.state.currentItem.title} (${
-//      this.state.currentIndex + 1
-//    }/${this.state.totalItems})`;
-//  }
-
-get navText() {
-  if (!this.state?.ready) {
-    return "Collections Navigator test render";
+  get shouldRenderBar() {
+    return this.state.ready;
   }
 
-  return `${this.state.collectionName}: ${this.state.currentItem.title} (${
-    this.state.currentIndex + 1
-  }/${this.state.totalItems})`;
-}
+  get navText() {
+    if (!this.state.ready || !this.state.currentItem) {
+      return "Collections Navigator";
+    }
+
+    return `${this.state.collectionName}: ${this.state.currentItem.title} (${
+      this.state.currentIndex + 1
+    }/${this.state.totalItems})`;
+  }
 
   get isFirst() {
-    return !this.shouldRenderBar || this.state.currentIndex <= 0;
+    return !this.state.ready || this.state.currentIndex <= 0;
   }
 
   get isLast() {
     return (
-      !this.shouldRenderBar ||
+      !this.state.ready ||
       this.state.currentIndex >= this.state.totalItems - 1
     );
   }
