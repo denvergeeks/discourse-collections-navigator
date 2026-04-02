@@ -452,6 +452,11 @@
   flex: 0 0 auto;
 }
 
+.collections-nav-modal .content-header-actions a.btn.btn-primary.collections-open-external-button {
+    padding: .2em .4em;
+    font-size: small;
+}
+
 .collections-nav-modal .cooked-content {
   min-height: 0;
   overflow: auto;
