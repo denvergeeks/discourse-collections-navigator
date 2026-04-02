@@ -1,10 +1,10 @@
 en:
   theme_metadata:
-    description: "Adds a responsive collections navigator UI on top of the discourse-collections plugin"
+    description: "Adds a responsive Collections Navigator UI on top of the discourse-collections plugin"
 
   collections_navigator:
-    open: "Open collection navigator"
-    previous: "Previous"
+    open: "Open Collection Navigator"
+    previous: "Prev"
     next: "Next"
     open_external: "Open in New Tab"
     open_external_window: "Click to Open in New Browser Window"
