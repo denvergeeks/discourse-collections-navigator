@@ -340,7 +340,18 @@ export default apiInitializer("1.24.0", (api) => {
         "</button>" +
         "</div>";
 
-      postsContainer.parentNode.insertBefore(navBar, postsContainer);
+//      postsContainer.parentNode.insertBefore(navBar, postsContainer);
+
+const insertionTarget =
+  postsContainer ||
+  document.querySelector(".post-stream") ||
+  document.querySelector(".topic-area");
+
+if (!insertionTarget || !insertionTarget.parentNode) {
+  return;
+}
+
+insertionTarget.parentNode.insertBefore(navBar, insertionTarget);
 
       const modal = document.createElement("div");
       modal.className = "collections-nav-modal-overlay";
