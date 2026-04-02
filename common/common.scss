@@ -118,6 +118,21 @@
   width: 42px;
   height: 42px;
   border-radius: 10px;
+  box-sizing: content-box;
+  margin-right: 0; // adjust if you want spacing from header title
+
+  &:focus-visible,
+  .discourse-no-touch &:hover {
+    background-color: var(--primary-low);
+  }
+
+  .d-icon,
+  svg {
+    font-size: var(--font-up-4);
+    line-height: var(--line-height-large);
+    display: inline-block;
+    color: var(--header_primary-low-mid);
+  }
 }
 
 .collections-nav-modal .topic-slider-shell {
