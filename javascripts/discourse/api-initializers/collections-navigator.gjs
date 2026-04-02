@@ -4,6 +4,26 @@ export default apiInitializer("1.24.0", (api) => {
   let keyboardHandlerBound = false;
   let resizerBound = false;
   let activeModalState = null;
+  let currentCleanup = null;
+
+  const KEYBOARD_THROTTLE_MS = 150;
+  const SCROLL_THROTTLE_MS = 50;
+
+  const externalLinkIcon = `
+    <svg
+      class="fa d-icon svg-icon svg-string"
+      width="1em"
+      height="1em"
+      viewBox="0 0 512 512"
+      aria-hidden="true"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        fill="currentColor"
+        d="M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l82.7 0L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3l0 82.7c0 17.7 14.3 32 32 32s32-14.3 32-32l0-160c0-17.7-14.3-32-32-32L320 0zM80 32C35.8 32 0 67.8 0 112L0 432c0 44.2 35.8 80 80 80l320 0c44.2 0 80-35.8 80-80l0-112c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 112c0 8.8-7.2 16-16 16L80 448c-8.8 0-16-7.2-16-16l0-320c0-8.8 7.2-16 16-16l112 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L80 32z"
+      />
+    </svg>
+  `;
 
   function getScrollBehavior() {
     return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
@@ -27,6 +47,27 @@ export default apiInitializer("1.24.0", (api) => {
     return Math.min(Math.max(value, min), max);
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function normalizePath(url) {
+    if (!url) {
+      return window.location.pathname;
+    }
+
+    try {
+      return url.startsWith("http") ? new URL(url).pathname : url;
+    } catch {
+      return window.location.pathname;
+    }
+  }
+
   function getCssPxNumber(element, varName, fallback) {
     const raw = getComputedStyle(element).getPropertyValue(varName).trim();
 
@@ -46,21 +87,140 @@ export default apiInitializer("1.24.0", (api) => {
     return Number.isNaN(parsed) ? fallback : parsed;
   }
 
-  const externalLinkIcon = `
-    <svg
-      class="fa d-icon svg-icon svg-string"
-      width="1em"
-      height="1em"
-      viewBox="0 0 512 512"
-      aria-hidden="true"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        fill="currentColor"
-        d="M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l82.7 0L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3l0 82.7c0 17.7 14.3 32 32 32s32-14.3 32-32l0-160c0-17.7-14.3-32-32-32L320 0zM80 32C35.8 32 0 67.8 0 112L0 432c0 44.2 35.8 80 80 80l320 0c44.2 0 80-35.8 80-80l0-112c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 112c0 8.8-7.2 16-16 16L80 448c-8.8 0-16-7.2-16-16l0-320c0-8.8 7.2-16 16-16l112 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L80 32z"
-      />
-    </svg>
-  `;
+  function isExternalUrl(href) {
+    if (!href) {
+      return false;
+    }
+
+    if (href.startsWith("http://") || href.startsWith("https://")) {
+      try {
+        const url = new URL(href);
+        return url.hostname !== window.location.hostname;
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  function getTopicIdFromHref(href) {
+    if (!href || isExternalUrl(href)) {
+      return null;
+    }
+
+    const idMatch = href.match(/\/(\d+)$/);
+    return idMatch ? idMatch[1] : null;
+  }
+
+  function getTopicSlugFromHref(href) {
+    if (!href || isExternalUrl(href)) {
+      return null;
+    }
+
+    try {
+      const path = href.startsWith("http") ? new URL(href).pathname : href;
+      const parts = path.split("/");
+      return parts[2] || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function buildItems(links) {
+    return Array.from(links).map((link) => {
+      const href = link.getAttribute("href");
+
+      let title = link
+        .querySelector(".collection-link-content-text")
+        ?.textContent?.trim();
+
+      if (!title) {
+        title = link
+          .querySelector(".sidebar-section-link-content-text")
+          ?.textContent?.trim();
+      }
+
+      if (!title) {
+        title = link
+          .querySelector("[class*='content-text']")
+          ?.textContent?.trim();
+      }
+
+      if (!title) {
+        title = link.textContent?.trim();
+      }
+
+      if (!title) {
+        title = "Untitled";
+      }
+
+      const external = isExternalUrl(href);
+
+      return {
+        title,
+        href,
+        topicId: getTopicIdFromHref(href),
+        slug: getTopicSlugFromHref(href),
+        external,
+      };
+    });
+  }
+
+  function getPostContentNode() {
+    let content = document.querySelector(
+      ".topic-post[data-post-number='1'] .cooked"
+    );
+
+    if (!content) {
+      content = document.querySelector(".topic-body .cooked");
+    }
+
+    return content?.cloneNode(true) || null;
+  }
+
+  function enhanceCooked(element) {
+    if (!element) {
+      return;
+    }
+
+    api.applyDecoratorsToElement?.(element);
+  }
+
+  function waitForCollectionsDom(callback, attempts = 12) {
+    if (attempts <= 0) {
+      return;
+    }
+
+    const sidebarPanel = document.querySelector(
+      ".discourse-collections-sidebar-panel"
+    );
+    const postsContainer = document.querySelector(".posts");
+
+    if (sidebarPanel && postsContainer) {
+      callback(sidebarPanel, postsContainer);
+      return;
+    }
+
+    setTimeout(() => waitForCollectionsDom(callback, attempts - 1), 150);
+  }
+
+  function cleanupExistingUi() {
+    currentCleanup?.();
+    currentCleanup = null;
+
+    document
+      .querySelectorAll(".collections-nav-injected")
+      .forEach((el) => el.remove());
+    document
+      .querySelectorAll(".collections-nav-modal-overlay")
+      .forEach((el) => el.remove());
+
+    if (activeModalState?.hide) {
+      activeModalState.hide();
+    }
+    activeModalState = null;
+  }
 
   function ensureSidebarResizer(modal) {
     if (!modal) {
@@ -73,10 +233,9 @@ export default apiInitializer("1.24.0", (api) => {
     }
 
     const splitBody = modal.querySelector(".modal-body-split");
-    const sidebar = modal.querySelector(".modal-items-sidebar");
     const contentArea = modal.querySelector(".modal-content-area");
 
-    if (!splitBody || !sidebar || !contentArea) {
+    if (!splitBody || !contentArea) {
       return null;
     }
 
@@ -222,105 +381,108 @@ export default apiInitializer("1.24.0", (api) => {
     resizerBound = true;
   }
 
-  api.onPageChange(() => {
-    setTimeout(() => {
-      const sidebarPanel = document.querySelector(
-        ".discourse-collections-sidebar-panel"
-      );
-      const postsContainer = document.querySelector(".posts");
+  function renderNavText(collectionName, item, index, totalItems) {
+    return `${collectionName}: ${item.title} (${index + 1}/${totalItems})`;
+  }
 
-      if (!sidebarPanel || !postsContainer) {
-        return;
-      }
+  function renderCollectionItem(item, idx, activeIndex) {
+    const isActive = idx === activeIndex;
 
-      const links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
-
-      document
-        .querySelectorAll(".collections-nav-injected")
-        .forEach((el) => el.remove());
-      document
-        .querySelectorAll(".collections-nav-modal-overlay")
-        .forEach((el) => el.remove());
-
-      const collectionTitleEl = document.querySelector(
-        ".collection-sidebar__title"
-      );
-      const collectionDescEl = document.querySelector(
-        ".collection-sidebar__desc"
-      );
-      const collectionName =
-        collectionTitleEl?.textContent?.trim() || "Collection";
-      const collectionDesc = collectionDescEl?.textContent?.trim() || "";
-
-      const isExternalUrl = (href) => {
-        if (!href) {
-          return false;
-        }
-
-        if (href.startsWith("http://") || href.startsWith("https://")) {
-          try {
-            const url = new URL(href);
-            return url.hostname !== window.location.hostname;
-          } catch {
-            return false;
+    return `
+      <li class="collection-item ${isActive ? "active" : ""}">
+        <button
+          class="collection-item-link ${item.external ? "external-link" : ""} ${isActive ? "active" : ""}"
+          data-index="${idx}"
+          title="${escapeHtml(item.title)}"
+          type="button"
+          aria-current="${isActive ? "true" : "false"}"
+        >
+          <span class="item-number">${idx + 1}</span>
+          <span class="item-title">${escapeHtml(item.title)}</span>
+          ${
+            isActive
+              ? '<span class="d-icon d-icon-check collections-active-check" aria-hidden="true"></span>'
+              : ""
           }
-        }
+          ${
+            item.external
+              ? `<span class="collections-external-link-button" aria-hidden="true">${externalLinkIcon}</span>`
+              : ""
+          }
+        </button>
+      </li>
+    `;
+  }
 
-        return false;
-      };
+  function renderSliderItem(item, idx, activeIndex, totalItems) {
+    const isActive = idx === activeIndex;
 
-      const items = Array.from(links).map((link) => {
-        const href = link.getAttribute("href");
+    return `
+      <button
+        class="slider-item ${isActive ? "active" : ""}"
+        data-index="${idx}"
+        title="${escapeHtml(item.title)}"
+        type="button"
+        aria-pressed="${isActive ? "true" : "false"}"
+      >
+        ${item.external ? externalLinkIcon : ""}
+        <span class="slider-item-title">${escapeHtml(item.title)}</span>
+        <span class="slider-item-count">${idx + 1}/${totalItems}</span>
+      </button>
+    `;
+  }
 
-        let title = link
-          .querySelector(".collection-link-content-text")
-          ?.textContent?.trim();
+  function loadExternalContent(url) {
+    return `
+      <div class="external-url-header">
+        <h4>
+          <a href="${escapeHtml(
+            url
+          )}" target="_blank" rel="noopener noreferrer" class="external-url-link">
+            ${escapeHtml(url.replace(/^https?:\/\//, ""))}
+            ${externalLinkIcon}
+          </a>
+        </h4>
+      </div>
+      <div class="iframe-loading">Loading external content...</div>
+      <iframe
+        src="${escapeHtml(url)}"
+        class="external-topic-iframe"
+        sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-top-navigation"
+        loading="lazy"
+        title="External content: ${escapeHtml(url)}"
+      ></iframe>
+    `;
+  }
 
-        if (!title) {
-          title = link
-            .querySelector(".sidebar-section-link-content-text")
-            ?.textContent?.trim();
-        }
+  api.decorateCookedElement(() => {}, {
+    id: "collections-navigator-modal",
+  });
 
-        if (!title) {
-          title = link
-            .querySelector("[class*='content-text']")
-            ?.textContent?.trim();
-        }
+  api.onPageChange((url) => {
+    const currentPath = normalizePath(url);
 
-        if (!title) {
-          title = link.textContent?.trim();
-        }
+    cleanupExistingUi();
 
-        if (!title) {
-          title = "Untitled";
-        }
-
-        const external = isExternalUrl(href);
-        const idMatch = href ? href.match(/\/(\d+)$/) : null;
-        const topicId = !external && idMatch ? idMatch[1] : null;
-
-        return {
-          title,
-          href,
-          topicId,
-          external,
-        };
-      });
+    waitForCollectionsDom((sidebarPanel, postsContainer) => {
+      const links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
+      const items = buildItems(links);
 
       if (items.length < 2) {
         return;
       }
 
-      const currentUrl = window.location.pathname;
+      const collectionTitleEl = document.querySelector(".collection-sidebar__title");
+      const collectionDescEl = document.querySelector(".collection-sidebar__desc");
+      const collectionName =
+        collectionTitleEl?.textContent?.trim() || "Collection";
+      const collectionDesc = collectionDescEl?.textContent?.trim() || "";
+
       const currentIndex = items.findIndex((item) => {
-        if (item.external || !item.href) {
+        if (item.external || !item.slug) {
           return false;
         }
-
-        const parts = item.href.split("/");
-        const slugPart = parts[2];
-        return slugPart && currentUrl.includes(slugPart);
+        return currentPath.includes(item.slug);
       });
 
       if (currentIndex === -1) {
@@ -329,63 +491,15 @@ export default apiInitializer("1.24.0", (api) => {
 
       const currentItem = items[currentIndex];
       const totalItems = items.length;
-
-      const getPostContentNode = () => {
-        let content = document.querySelector(
-          ".topic-post[data-post-number='1'] .cooked"
-        );
-
-        if (!content) {
-          content = document.querySelector(".topic-body .cooked");
-        }
-
-        if (!content) {
-          return null;
-        }
-
-        return content.cloneNode(true);
-      };
-
       const cookedNode = getPostContentNode();
-      const cookedContent =
-        cookedNode?.outerHTML || "<p>Loading content...</p>";
 
-      const KEYBOARD_THROTTLE_MS = 150;
-      const SCROLL_THROTTLE_MS = 50;
+      let selectedIndex = currentIndex;
+      let sidebarOpen = false;
+      let modalRequestId = 0;
+      let pageRequestId = 0;
 
-      function adjustIframe(iframe, wrapper) {
-        if (!iframe || !wrapper) {
-          return;
-        }
-
-        const rect = wrapper.getBoundingClientRect();
-        const offsetTop = rect.top + window.scrollY;
-        const offsetLeft = rect.left + window.scrollX;
-
-        wrapper.style.height = `calc(100vh - ${offsetTop}px)`;
-
-        iframe.style.position = "absolute";
-        iframe.style.top = "0";
-        iframe.style.left = offsetLeft > 0 ? `-${offsetLeft}px` : "0";
-        iframe.style.width = `${wrapper.offsetWidth}px`;
-        iframe.style.height = "100%";
-        iframe.style.border = "none";
-        iframe.style.display = "block";
-
-        wrapper.style.visibility = "visible";
-      }
-
-      const enhanceCooked = (element) => {
-        if (!element) {
-          return;
-        }
-
-        api.decorateCookedElement(() => {}, {
-          id: "collections-navigator-modal",
-        });
-
-        api.applyDecoratorsToElement?.(element);
-      };
+      const cleanupFns = [];
+      const addCleanup = (fn) => cleanupFns.push(fn);
 
       const navBar = document.createElement("div");
       navBar.className = "collections-item-nav-bar collections-nav-injected";
@@ -394,7 +508,9 @@ export default apiInitializer("1.24.0", (api) => {
           <svg class="fa d-icon d-icon-collection-pip svg-icon fa-width-auto prefix-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
             <use href="#collection-pip"></use>
           </svg>
-          <span class="nav-text">${collectionName}: ${currentItem.title} (${currentIndex + 1}/${totalItems})</span>
+          <span class="nav-text">${escapeHtml(
+            renderNavText(collectionName, currentItem, currentIndex, totalItems)
+          )}</span>
         </button>
         <div class="collections-quick-nav">
           <button class="btn btn--secondary collections-nav-prev" ${
@@ -413,12 +529,12 @@ export default apiInitializer("1.24.0", (api) => {
           </button>
         </div>
       `;
-      postsContainer.parentNode.insertBefore(navBar, postsContainer);
+      postsContainer.parentNode?.insertBefore(navBar, postsContainer);
 
-      const modal = document.createElement("div");
-      modal.className = "collections-nav-modal-overlay";
-      modal.innerHTML = `
-        <div class="collections-nav-modal collections-modal-with-content">
+      const modalOverlay = document.createElement("div");
+      modalOverlay.className = "collections-nav-modal-overlay";
+      modalOverlay.innerHTML = `
+        <div class="collections-nav-modal collections-modal-with-content" role="dialog" aria-modal="true" aria-label="${escapeHtml(collectionName)} navigator">
           <div class="modal-header">
             <div class="modal-header-side modal-header-side-left">
               <button class="modal-sidebar-toggle btn btn-flat btn--toggle no-text btn-icon narrow-desktop" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">
@@ -430,10 +546,10 @@ export default apiInitializer("1.24.0", (api) => {
 
             <div class="modal-header-center">
               <div class="modal-header-content">
-                <h2 class="modal-title">${collectionName}</h2>
+                <h2 class="modal-title">${escapeHtml(collectionName)}</h2>
                 ${
                   collectionDesc
-                    ? `<p class="collection-description">${collectionDesc}</p>`
+                    ? `<p class="collection-description">${escapeHtml(collectionDesc)}</p>`
                     : ""
                 }
 
@@ -447,16 +563,8 @@ export default apiInitializer("1.24.0", (api) => {
                   <div class="topic-slider-container">
                     <div class="topic-slider">
                       ${items
-                        .map(
-                          (item, idx) => `
-                            <button class="slider-item ${
-                              idx === currentIndex ? "active" : ""
-                            }" data-index="${idx}" title="${item.title}">
-                              ${item.external ? externalLinkIcon : ""}
-                              <span class="slider-item-title">${item.title}</span>
-                              <span class="slider-item-count">${idx + 1}/${totalItems}</span>
-                            </button>
-                          `
+                        .map((item, idx) =>
+                          renderSliderItem(item, idx, currentIndex, totalItems)
                         )
                         .join("")}
                     </div>
@@ -484,42 +592,17 @@ export default apiInitializer("1.24.0", (api) => {
             <div class="modal-items-sidebar collapsed">
               <ul class="collection-items-list">
                 ${items
-                  .map(
-                    (item, idx) => `
-                      <li class="collection-item ${
-                        idx === currentIndex ? "active" : ""
-                      }">
-                        <div class="collection-item-link ${
-                          item.external ? "external-link" : ""
-                        }" data-index="${idx}" title="${item.title}">
-                          <span class="item-number">${idx + 1}</span>
-                          <span class="item-title">${item.title}</span>
-                          ${
-                            idx === currentIndex
-                              ? '<span class="d-icon d-icon-check"></span>'
-                              : ""
-                          }
-                          ${
-                            item.external
-                              ? `<span class="collections-external-link-button" aria-hidden="true">${externalLinkIcon}</span>`
-                              : ""
-                          }
-                        </div>
-                      </li>
-                    `
-                  )
+                  .map((item, idx) => renderCollectionItem(item, idx, currentIndex))
                   .join("")}
               </ul>
             </div>
 
             <div class="modal-content-area">
               <div class="content-header">
-                <h3 class="content-title">${currentItem.title}</h3>
+                <h3 class="content-title">${escapeHtml(currentItem.title)}</h3>
                 <div class="content-header-actions"></div>
               </div>
-              <div class="cooked-content">
-                ${cookedContent}
-              </div>
+              <div class="cooked-content"></div>
             </div>
           </div>
 
@@ -546,49 +629,60 @@ export default apiInitializer("1.24.0", (api) => {
           </div>
         </div>
       `;
-      document.body.appendChild(modal);
+      document.body.appendChild(modalOverlay);
 
-      const modalPanel = modal.querySelector(".collections-nav-modal");
+      const modalPanel = modalOverlay.querySelector(".collections-nav-modal");
       ensureSidebarResizer(modalPanel);
       bindSidebarResizer();
 
-      const contentArea = modal.querySelector(".cooked-content");
-
+      const contentArea = modalOverlay.querySelector(".cooked-content");
       if (cookedNode && contentArea) {
-        contentArea.innerHTML = "";
-        contentArea.appendChild(cookedNode);
-      } else {
+        contentArea.replaceChildren(cookedNode);
         enhanceCooked(contentArea);
+      } else if (contentArea) {
+        contentArea.innerHTML = "<p>Loading content...</p>";
       }
 
       const toggleBtn = navBar.querySelector(".collections-nav-toggle");
       const prevBtn = navBar.querySelector(".collections-nav-prev");
       const nextBtn = navBar.querySelector(".collections-nav-next");
-      const closeBtn = modal.querySelector(".modal-close-btn");
-      const itemLinks = modal.querySelectorAll(".collection-item-link");
-      const sliderItems = modal.querySelectorAll(".slider-item");
-      const contentTitle = modal.querySelector(".content-title");
-      const contentHeaderActions = modal.querySelector(
-        ".content-header-actions"
-      );
-      const sidebarToggle = modal.querySelector(".modal-sidebar-toggle");
-      const sidebar = modal.querySelector(".modal-items-sidebar");
-      const modalContentPrev = modal.querySelector(".modal-content-prev");
-      const modalContentNext = modal.querySelector(".modal-content-next");
-      const pagingText = modal.querySelector(".paging-text");
-      const topicSliderContainer = modal.querySelector(
-        ".topic-slider-container"
-      );
-      const topicSliderShell = modal.querySelector(".topic-slider-shell");
-      const topicSlider = modal.querySelector(".topic-slider");
-      const topicSliderPrev = modal.querySelector(".topic-slider-edge-prev");
-      const topicSliderNext = modal.querySelector(".topic-slider-edge-next");
+      const closeBtn = modalOverlay.querySelector(".modal-close-btn");
+      const contentTitle = modalOverlay.querySelector(".content-title");
+      const contentHeaderActions = modalOverlay.querySelector(".content-header-actions");
+      const sidebarToggle = modalOverlay.querySelector(".modal-sidebar-toggle");
+      const sidebar = modalOverlay.querySelector(".modal-items-sidebar");
+      const collectionList = modalOverlay.querySelector(".collection-items-list");
+      const modalContentPrev = modalOverlay.querySelector(".modal-content-prev");
+      const modalContentNext = modalOverlay.querySelector(".modal-content-next");
+      const pagingText = modalOverlay.querySelector(".paging-text");
+      const topicSliderContainer = modalOverlay.querySelector(".topic-slider-container");
+      const topicSliderShell = modalOverlay.querySelector(".topic-slider-shell");
+      const topicSlider = modalOverlay.querySelector(".topic-slider");
+      const topicSliderPrev = modalOverlay.querySelector(".topic-slider-edge-prev");
+      const topicSliderNext = modalOverlay.querySelector(".topic-slider-edge-next");
 
-      let selectedIndex = currentIndex;
-      let sidebarOpen = false;
+      function rerenderSidebarList(activeIndex) {
+        if (!collectionList) {
+          return;
+        }
+
+        collectionList.innerHTML = items
+          .map((item, idx) => renderCollectionItem(item, idx, activeIndex))
+          .join("");
+      }
+
+      function rerenderSlider(activeIndex) {
+        if (!topicSlider) {
+          return;
+        }
+
+        topicSlider.innerHTML = items
+          .map((item, idx) => renderSliderItem(item, idx, activeIndex, totalItems))
+          .join("");
+      }
 
       const syncSliderEdgeState = () => {
-        if (!topicSliderContainer || !topicSlider) {
+        if (!topicSliderContainer || !topicSliderShell) {
           return;
         }
 
@@ -596,15 +690,14 @@ export default apiInitializer("1.24.0", (api) => {
           topicSliderContainer.scrollWidth - topicSliderContainer.clientWidth;
         const isScrollable = maxScrollLeft > 4;
 
-        topicSliderShell?.classList.toggle("is-scrollable", isScrollable);
-        topicSliderShell?.classList.toggle(
+        topicSliderShell.classList.toggle("is-scrollable", isScrollable);
+        topicSliderShell.classList.toggle(
           "at-start",
           !isScrollable || topicSliderContainer.scrollLeft <= 2
         );
-        topicSliderShell?.classList.toggle(
+        topicSliderShell.classList.toggle(
           "at-end",
-          !isScrollable ||
-            topicSliderContainer.scrollLeft >= maxScrollLeft - 2
+          !isScrollable || topicSliderContainer.scrollLeft >= maxScrollLeft - 2
         );
       };
 
@@ -613,22 +706,37 @@ export default apiInitializer("1.24.0", (api) => {
           return;
         }
 
-        const amount = Math.max(180, Math.floor(topicSliderContainer.clientWidth * 0.7));
+        const amount = Math.max(
+          180,
+          Math.floor(topicSliderContainer.clientWidth * 0.7)
+        );
+
         topicSliderContainer.scrollBy({
           left: direction * amount,
           behavior: getScrollBehavior(),
         });
       };
 
+      const scrollSliderToActive = () => {
+        const activeSlider = modalOverlay.querySelector(".slider-item.active");
+        if (activeSlider && !topicSliderShell?.classList.contains("collapsed")) {
+          activeSlider.scrollIntoView({
+            behavior: getScrollBehavior(),
+            block: "nearest",
+            inline: "center",
+          });
+        }
+      };
+
       const setSidebarVisibility = (open) => {
         sidebarOpen = open;
 
         if (open) {
-          sidebar.classList.remove("collapsed");
-          modalPanel.classList.add("collections-sidebar-open");
+          sidebar?.classList.remove("collapsed");
+          modalPanel?.classList.add("collections-sidebar-open");
         } else {
-          sidebar.classList.add("collapsed");
-          modalPanel.classList.remove("collections-sidebar-open");
+          sidebar?.classList.add("collapsed");
+          modalPanel?.classList.remove("collections-sidebar-open");
         }
 
         if (window.innerWidth <= 767) {
@@ -644,11 +752,11 @@ export default apiInitializer("1.24.0", (api) => {
       };
 
       const showModal = () => {
-        modal.style.display = "flex";
+        modalOverlay.classList.add("is-visible");
         setSidebarVisibility(window.innerWidth > 767 ? sidebarOpen : false);
 
         activeModalState = {
-          modal,
+          modal: modalOverlay,
           totalItems,
           selectedIndexRef: () => selectedIndex,
           prev: () => {
@@ -662,7 +770,7 @@ export default apiInitializer("1.24.0", (api) => {
             }
           },
           hide: () => {
-            modal.style.display = "none";
+            modalOverlay.classList.remove("is-visible");
           },
         };
 
@@ -673,239 +781,246 @@ export default apiInitializer("1.24.0", (api) => {
       };
 
       const hideModal = () => {
-        modal.style.display = "none";
-        if (activeModalState?.modal === modal) {
+        modalOverlay.classList.remove("is-visible");
+        if (activeModalState?.modal === modalOverlay) {
           activeModalState = null;
         }
       };
 
-      const toggleSidebar = () => {
-        if (window.innerWidth <= 767) {
-          setSidebarVisibility(!sidebarOpen);
-          return;
-        }
-
-        setSidebarVisibility(!sidebarOpen);
-      };
-
-      const scrollSliderToActive = () => {
-        const activeSlider = modal.querySelector(".slider-item.active");
-        if (activeSlider && !topicSliderShell?.classList.contains("collapsed")) {
-          activeSlider.scrollIntoView({
-            behavior: getScrollBehavior(),
-            block: "nearest",
-            inline: "center",
-          });
-        }
-      };
-
-      const updatePageContent = (index) => {
-        if (index < 0 || index >= totalItems) {
-          return;
-        }
-
-        if (items[index].external) {
-          return;
-        }
-
-        selectedIndex = index;
-
+      const updateNavState = (index) => {
         const navText = navBar.querySelector(".nav-text");
-        navText.textContent = `${collectionName}: ${items[index].title} (${index + 1}/${totalItems})`;
+        if (navText) {
+          navText.textContent = renderNavText(
+            collectionName,
+            items[index],
+            index,
+            totalItems
+          );
+        }
 
         prevBtn.disabled = index === 0;
         nextBtn.disabled = index === totalItems - 1;
+        modalContentPrev.disabled = index === 0;
+        modalContentNext.disabled = index === totalItems - 1;
+        pagingText.textContent = `${index + 1}/${totalItems}`;
+        contentTitle.textContent = items[index].title;
 
-        if (items[index].topicId) {
-          fetch(`/t/${items[index].topicId}.json`)
-            .then((response) => response.json())
-            .then((data) => {
-              document.title = items[index].title;
+        rerenderSidebarList(index);
+        rerenderSlider(index);
 
-              let targetContent = document.querySelector(
-                ".topic-post[data-post-number='1'] .cooked"
-              );
-              if (!targetContent) {
-                targetContent = document.querySelector(".topic-body .cooked");
-              }
-              if (!targetContent) {
-                targetContent = document.querySelector(
-                  ".post-stream .posts .boxed-body"
-                );
-              }
-              if (!targetContent) {
-                targetContent = document.querySelector(".post-content");
-              }
-              if (!targetContent) {
-                targetContent = document.querySelector("[data-post-id] .cooked");
-              }
-              if (!targetContent) {
-                targetContent = document.querySelector(".cooked");
-              }
-
-              const cooked = data.post_stream?.posts?.[0]?.cooked;
-              if (targetContent && cooked) {
-                targetContent.innerHTML = cooked;
-                enhanceCooked(targetContent);
-              }
-
-              contentTitle.textContent = items[index].title;
-              if (cooked && contentArea) {
-                contentArea.innerHTML = cooked;
-                enhanceCooked(contentArea);
-              }
-            })
-            .catch((err) => console.error("Error updating content", err));
-        }
-      };
-
-      const loadExternalContent = (url) => {
-        return `
-          <div class="external-url-header">
-            <h4>
-              <a href="${url}" target="_blank" rel="noopener noreferrer" class="external-url-link">
-                ${url.replace(/^https?:\/\//, "")}
-                ${externalLinkIcon}
-              </a>
-            </h4>
-          </div>
-          <div class="iframe-loading">Loading external content...</div>
-          <iframe
-            src="${url}"
-            class="external-topic-iframe"
-            sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-top-navigation"
-            loading="lazy"
-            title="External content: ${url}"
-          ></iframe>
-        `;
+        window.requestAnimationFrame(() => {
+          scrollSliderToActive();
+          syncSliderEdgeState();
+        });
       };
 
       const setupIframeHandlers = (container) => {
         const iframe = container.querySelector(".external-topic-iframe");
         const loadingDiv = container.querySelector(".iframe-loading");
-        const wrapper = container.querySelector(
-          ".cooked-content.external-url-content-wrapper"
-        );
+        const wrapper = container.closest(".external-url-content-wrapper");
 
-        if (!iframe) {
+        if (!iframe || !wrapper) {
           return;
         }
 
-        const onResize = throttle(() => adjustIframe(iframe, wrapper), 100);
+        const adjustIframe = () => {
+          const rect = wrapper.getBoundingClientRect();
+          const offsetTop = rect.top + window.scrollY;
+          const offsetLeft = rect.left + window.scrollX;
+
+          wrapper.style.height = `calc(100vh - ${offsetTop}px)`;
+
+          iframe.style.position = "absolute";
+          iframe.style.top = "0";
+          iframe.style.left = offsetLeft > 0 ? `-${offsetLeft}px` : "0";
+          iframe.style.width = `${wrapper.offsetWidth}px`;
+          iframe.style.height = "100%";
+          iframe.style.border = "none";
+          iframe.style.display = "block";
+          wrapper.style.visibility = "visible";
+        };
+
+        const onResize = throttle(adjustIframe, 100);
 
         const onLoad = () => {
           if (loadingDiv) {
             loadingDiv.style.display = "none";
           }
-          adjustIframe(iframe, wrapper);
+          adjustIframe();
           window.addEventListener("resize", onResize);
+          addCleanup(() => window.removeEventListener("resize", onResize));
         };
 
         const onError = () => {
           if (loadingDiv) {
             loadingDiv.style.display = "none";
           }
-          if (wrapper) {
-            wrapper.style.visibility = "visible";
-          }
+          wrapper.style.visibility = "visible";
           iframe.style.display = "none";
           window.removeEventListener("resize", onResize);
         };
 
-        iframe.addEventListener("load", onLoad);
-        iframe.addEventListener("error", onError);
-
-        setTimeout(() => {
-          if (loadingDiv && loadingDiv.style.display !== "none") {
-            try {
-              iframe.contentWindow.location.href;
-              onLoad();
-            } catch {
-              onError();
-            }
-          }
-        }, 5000);
+        iframe.addEventListener("load", onLoad, { once: true });
+        iframe.addEventListener("error", onError, { once: true });
       };
 
-      const updateModalContent = throttle((index) => {
+      const fetchTopicJson = async (topicId, requestId, mode) => {
+        const response = await fetch(`/t/${topicId}.json`);
+        const data = await response.json();
+
+        if (mode === "modal" && requestId !== modalRequestId) {
+          return null;
+        }
+
+        if (mode === "page" && requestId !== pageRequestId) {
+          return null;
+        }
+
+        return data;
+      };
+
+      const updatePageContent = async (index) => {
         if (index < 0 || index >= totalItems) {
           return;
         }
 
+        const item = items[index];
+        if (item.external || !item.topicId) {
+          return;
+        }
+
         selectedIndex = index;
-        contentTitle.textContent = items[index].title;
+        updateNavState(index);
+
+        const requestId = ++pageRequestId;
+
+        try {
+          const data = await fetchTopicJson(item.topicId, requestId, "page");
+          if (!data) {
+            return;
+          }
+
+          document.title = item.title;
+
+          let targetContent = document.querySelector(
+            ".topic-post[data-post-number='1'] .cooked"
+          );
+          if (!targetContent) {
+            targetContent = document.querySelector(".topic-body .cooked");
+          }
+          if (!targetContent) {
+            targetContent = document.querySelector(".post-stream .posts .boxed-body");
+          }
+          if (!targetContent) {
+            targetContent = document.querySelector(".post-content");
+          }
+          if (!targetContent) {
+            targetContent = document.querySelector("[data-post-id] .cooked");
+          }
+          if (!targetContent) {
+            targetContent = document.querySelector(".cooked");
+          }
+
+          const cooked = data.post_stream?.posts?.[0]?.cooked;
+          if (targetContent && cooked) {
+            targetContent.innerHTML = cooked;
+            enhanceCooked(targetContent);
+          }
+
+          if (contentArea && cooked) {
+            contentArea.innerHTML = cooked;
+            enhanceCooked(contentArea);
+          }
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error("Error updating page content", error);
+        }
+      };
+
+      const updateModalContent = throttle(async (index) => {
+        if (index < 0 || index >= totalItems) {
+          return;
+        }
+
+        const item = items[index];
+        selectedIndex = index;
+        updateNavState(index);
         contentHeaderActions.innerHTML = "";
 
-        pagingText.textContent = `${index + 1}/${totalItems}`;
-        modalContentPrev.disabled = index === 0;
-        modalContentNext.disabled = index === totalItems - 1;
-
-        sliderItems.forEach((item, idx) =>
-          item.classList.toggle("active", idx === index)
-        );
-        itemLinks.forEach((link, idx) =>
-          link.classList.toggle("active", idx === index)
-        );
-
-        window.requestAnimationFrame(() => {
-          scrollSliderToActive();
-          syncSliderEdgeState();
-        });
-
-        if (items[index].external) {
-          modal.classList.add("external-url-active");
+        if (item.external) {
+          modalPanel.classList.add("external-url-active");
           contentArea.classList.add("external-url-content-wrapper");
-          contentArea.innerHTML = loadExternalContent(items[index].href);
+          contentArea.innerHTML = loadExternalContent(item.href);
           setupIframeHandlers(contentArea);
 
           contentHeaderActions.innerHTML = `
-            <a href="${items[index].href}" target="_blank" rel="noopener noreferrer" class="btn btn-primary collections-open-external-button">
+            <a href="${escapeHtml(
+              item.href
+            )}" target="_blank" rel="noopener noreferrer" class="btn btn-primary collections-open-external-button">
               ${externalLinkIcon}
               Open in New Tab
             </a>
           `;
-        } else {
-          modal.classList.remove("external-url-active");
-          contentArea.classList.remove("external-url-content-wrapper");
-          contentArea.innerHTML = "<p>Loading...</p>";
-
-          if (items[index].topicId) {
-            fetch(`/t/${items[index].topicId}.json`)
-              .then((r) => r.json())
-              .then((data) => {
-                const cooked = data.post_stream?.posts?.[0]?.cooked;
-                contentArea.innerHTML = cooked || "<p>No content</p>";
-                enhanceCooked(contentArea);
-              })
-              .catch(() => {
-                contentArea.innerHTML = "<p>Error loading</p>";
-              });
-          }
+          return;
         }
 
-        const navText = navBar.querySelector(".nav-text");
-        navText.textContent = `${collectionName}: ${items[index].title} (${index + 1}/${totalItems})`;
-        prevBtn.disabled = index === 0;
-        nextBtn.disabled = index === totalItems - 1;
+        modalPanel.classList.remove("external-url-active");
+        contentArea.classList.remove("external-url-content-wrapper");
+        contentArea.innerHTML = "<p>Loading...</p>";
+
+        if (!item.topicId) {
+          contentArea.innerHTML = "<p>No content</p>";
+          return;
+        }
+
+        const requestId = ++modalRequestId;
+
+        try {
+          const data = await fetchTopicJson(item.topicId, requestId, "modal");
+          if (!data) {
+            return;
+          }
+
+          const cooked = data.post_stream?.posts?.[0]?.cooked;
+          contentArea.innerHTML = cooked || "<p>No content</p>";
+          enhanceCooked(contentArea);
+        } catch {
+          if (requestId !== modalRequestId) {
+            return;
+          }
+          contentArea.innerHTML = "<p>Error loading</p>";
+        }
       }, SCROLL_THROTTLE_MS);
 
+      const onResize = throttle(() => {
+        if (!modalOverlay.classList.contains("is-visible")) {
+          return;
+        }
+
+        if (window.innerWidth <= 767) {
+          sidebar?.classList.add("collapsed");
+          modalPanel?.classList.remove("collections-sidebar-open");
+          sidebarOpen = false;
+          topicSliderShell?.classList.remove("collapsed");
+        }
+
+        syncSliderEdgeState();
+      }, 50);
+
+      window.addEventListener("resize", onResize);
+      addCleanup(() => window.removeEventListener("resize", onResize));
+
       toggleBtn.addEventListener("click", showModal);
-      sidebarToggle.addEventListener("click", toggleSidebar);
-      closeBtn.addEventListener("click", hideModal);
+      sidebarToggle?.addEventListener("click", () => setSidebarVisibility(!sidebarOpen));
+      closeBtn?.addEventListener("click", hideModal);
       topicSliderPrev?.addEventListener("click", () => scrollSliderByPage(-1));
       topicSliderNext?.addEventListener("click", () => scrollSliderByPage(1));
-      topicSliderContainer?.addEventListener("scroll", throttle(syncSliderEdgeState, 30));
-      window.addEventListener("resize", throttle(() => {
-        if (modal.style.display === "flex") {
-          if (window.innerWidth <= 767) {
-            sidebar.classList.add("collapsed");
-            modalPanel.classList.remove("collections-sidebar-open");
-            sidebarOpen = false;
-            topicSliderShell?.classList.remove("collapsed");
-          }
-          syncSliderEdgeState();
-        }
-      }, 50));
+
+      const onSliderScroll = throttle(syncSliderEdgeState, 30);
+      topicSliderContainer?.addEventListener("scroll", onSliderScroll);
+      addCleanup(() =>
+        topicSliderContainer?.removeEventListener("scroll", onSliderScroll)
+      );
 
       prevBtn.addEventListener("click", () => {
         if (selectedIndex > 0) {
@@ -919,44 +1034,76 @@ export default apiInitializer("1.24.0", (api) => {
         }
       });
 
-      modalContentPrev.addEventListener("click", () => {
+      modalContentPrev?.addEventListener("click", () => {
         if (selectedIndex > 0) {
           updateModalContent(selectedIndex - 1);
         }
       });
 
-      modalContentNext.addEventListener("click", () => {
+      modalContentNext?.addEventListener("click", () => {
         if (selectedIndex < totalItems - 1) {
           updateModalContent(selectedIndex + 1);
         }
       });
 
-      itemLinks.forEach((link) => {
-        link.style.cursor = "pointer";
-        link.addEventListener("click", () => {
-          const index = parseInt(link.getAttribute("data-index"), 10);
-          updateModalContent(index);
-        });
-      });
+      const onCollectionListClick = (event) => {
+        const button = event.target.closest(".collection-item-link");
+        if (!button) {
+          return;
+        }
 
-      sliderItems.forEach((item) => {
-        item.addEventListener("click", () => {
-          const index = parseInt(item.getAttribute("data-index"), 10);
-          updateModalContent(index);
-        });
-      });
+        const index = parseInt(button.getAttribute("data-index"), 10);
+        if (Number.isNaN(index)) {
+          return;
+        }
 
-      modal.addEventListener("click", (e) => {
-        if (e.target === modal) {
+        updateModalContent(index);
+      };
+      collectionList?.addEventListener("click", onCollectionListClick);
+      addCleanup(() =>
+        collectionList?.removeEventListener("click", onCollectionListClick)
+      );
+
+      const onSliderClick = (event) => {
+        const button = event.target.closest(".slider-item");
+        if (!button) {
+          return;
+        }
+
+        const index = parseInt(button.getAttribute("data-index"), 10);
+        if (Number.isNaN(index)) {
+          return;
+        }
+
+        updateModalContent(index);
+      };
+      topicSlider?.addEventListener("click", onSliderClick);
+      addCleanup(() => topicSlider?.removeEventListener("click", onSliderClick));
+
+      const overlayClickHandler = (event) => {
+        if (event.target === modalOverlay) {
           hideModal();
         }
-      });
+      };
+      modalOverlay.addEventListener("click", overlayClickHandler);
+      addCleanup(() => modalOverlay.removeEventListener("click", overlayClickHandler));
+
+      currentCleanup = () => {
+        cleanupFns.forEach((fn) => fn());
+        modalRequestId++;
+        pageRequestId++;
+        modalOverlay.remove();
+        navBar.remove();
+      };
 
       if (!keyboardHandlerBound) {
         let lastKeyPress = 0;
 
-        document.addEventListener("keydown", (e) => {
-          if (!activeModalState || activeModalState.modal.style.display !== "flex") {
+        document.addEventListener("keydown", (event) => {
+          if (
+            !activeModalState ||
+            !activeModalState.modal.classList.contains("is-visible")
+          ) {
             return;
           }
 
@@ -964,7 +1111,7 @@ export default apiInitializer("1.24.0", (api) => {
           const selected = activeModalState.selectedIndexRef();
           const maxIndex = activeModalState.totalItems - 1;
 
-          if (e.key === "ArrowLeft" && selected > 0) {
+          if (event.key === "ArrowLeft" && selected > 0) {
             if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
               return;
             }
@@ -976,9 +1123,9 @@ export default apiInitializer("1.24.0", (api) => {
               return;
             }
             lastKeyPress = now;
-            e.preventDefault();
+            event.preventDefault();
             activeModalState.prev();
-          } else if (e.key === "ArrowRight" && selected < maxIndex) {
+          } else if (event.key === "ArrowRight" && selected < maxIndex) {
             if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
               return;
             }
@@ -990,16 +1137,18 @@ export default apiInitializer("1.24.0", (api) => {
               return;
             }
             lastKeyPress = now;
-            e.preventDefault();
+            event.preventDefault();
             activeModalState.next();
-          } else if (e.key === "Escape") {
-            e.preventDefault();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
             activeModalState.hide();
           }
         });
 
         keyboardHandlerBound = true;
       }
-    }, 500);
+
+      syncSliderEdgeState();
+    });
   });
 });
