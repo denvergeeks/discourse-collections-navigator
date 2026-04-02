@@ -94,3 +94,15 @@
   border-radius: var(--d-border-radius);
   border: 1px solid var(--primary-low);
 }
+
+.collections-nav-modal .modal-items-sidebar {
+  display: none;
+}
+
+.collections-nav-modal.collections-sidebar-open .modal-items-sidebar {
+  display: block;
+}
+
+.collections-nav-modal.collections-sidebar-open .topic-slider-container {
+  display: none;
+}
