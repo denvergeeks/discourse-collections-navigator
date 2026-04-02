@@ -824,20 +824,15 @@ export default apiInitializer("1.24.0", (api) => {
         }
 
         const adjustIframe = () => {
-          const rect = wrapper.getBoundingClientRect();
-          const offsetTop = rect.top + window.scrollY;
-          const offsetLeft = rect.left + window.scrollX;
-
-          wrapper.style.height = `calc(100vh - ${offsetTop}px)`;
+          wrapper.style.height = "100%";
+          wrapper.style.visibility = "visible";
 
           iframe.style.position = "absolute";
-          iframe.style.top = "0";
-          iframe.style.left = offsetLeft > 0 ? `-${offsetLeft}px` : "0";
-          iframe.style.width = `${wrapper.offsetWidth}px`;
+          iframe.style.inset = "0";
+          iframe.style.width = "100%";
           iframe.style.height = "100%";
           iframe.style.border = "none";
           iframe.style.display = "block";
-          wrapper.style.visibility = "visible";
         };
 
         const onResize = throttle(adjustIframe, 100);
@@ -961,6 +956,14 @@ export default apiInitializer("1.24.0", (api) => {
               Open in New Tab
             </a>
           `;
+
+          if (window.innerWidth <= 767) {
+            sidebar?.classList.add("collapsed");
+            modalPanel?.classList.remove("collections-sidebar-open");
+            sidebarOpen = false;
+            topicSliderShell?.classList.remove("collapsed");
+          }
+
           return;
         }
 
