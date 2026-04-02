@@ -521,10 +521,15 @@
   }
 
   &.active,
-  .collection-item.active & {
+  .collection-item.active &,
+  &[aria-current="true"] {
     background: var(--highlight-medium);
     border-color: var(--tertiary);
   }
+}
+
+.collections-nav-modal .collections-active-check {
+  color: var(--tertiary);
 }
 
 .collections-nav-modal .item-number {
