@@ -11,10 +11,6 @@ export default apiInitializer("1.24.0", (api) => {
   api.renderInOutlet("topic-above-post-stream", CollectionsNavBar);
 
   api.onPageChange(() => {
-    if (!settings.collections_navigator_enabled) {
-      return;
-    }
-
     setTimeout(() => {
       initializeCollectionsNavigatorState(api);
       ensureCollectionsNavigatorModal(api);
