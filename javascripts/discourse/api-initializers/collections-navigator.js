@@ -342,16 +342,16 @@ export default apiInitializer("1.24.0", (api) => {
 
 //      postsContainer.parentNode.insertBefore(navBar, postsContainer);
 
-const insertionTarget =
-  postsContainer ||
+const topicArea =
+  document.querySelector(".topic-area") ||
   document.querySelector(".post-stream") ||
-  document.querySelector(".topic-area");
+  document.querySelector("#main-outlet");
 
-if (!insertionTarget || !insertionTarget.parentNode) {
+if (!topicArea || !topicArea.parentNode) {
   return;
 }
 
-insertionTarget.parentNode.insertBefore(navBar, insertionTarget);
+topicArea.parentNode.insertBefore(navBar, topicArea);
 
       const modal = document.createElement("div");
       modal.className = "collections-nav-modal-overlay";
