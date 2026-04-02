@@ -1,5 +1,6 @@
 import Component from "@glimmer/component";
 import { action } from "@ember/object";
+import { on } from "@ember/modifier";
 import { getCollectionsNavigatorState } from "../lib/collections-navigator-state";
 
 export default class CollectionsNavBar extends Component {
