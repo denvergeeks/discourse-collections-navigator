@@ -371,6 +371,59 @@ function showModal() {
   }
 }
 
+function updateSliderEdgeState(modal) {
+  const shell = modal?.querySelector(".topic-slider-shell");
+  const container = modal?.querySelector(".topic-slider-container");
+  const prevButton = modal?.querySelector(".topic-slider-edge-prev");
+  const nextButton = modal?.querySelector(".topic-slider-edge-next");
+
+  if (!shell || !container) {
+    return;
+  }
+
+  const maxScrollLeft = container.scrollWidth - container.clientWidth;
+  const current = Math.max(0, container.scrollLeft);
+  const threshold = 2;
+
+  const atStart = current <= threshold;
+  const atEnd = current >= maxScrollLeft - threshold || maxScrollLeft <= threshold;
+  const isScrollable = maxScrollLeft > threshold;
+
+  shell.classList.toggle("at-start", atStart);
+  shell.classList.toggle("at-end", atEnd);
+  shell.classList.toggle("is-scrollable", isScrollable);
+
+  if (prevButton) {
+    prevButton.disabled = atStart || !isScrollable;
+    prevButton.setAttribute("aria-hidden", atStart || !isScrollable ? "true" : "false");
+  }
+
+  if (nextButton) {
+    nextButton.disabled = atEnd || !isScrollable;
+    nextButton.setAttribute("aria-hidden", atEnd || !isScrollable ? "true" : "false");
+  }
+}
+
+function bindSliderScrollState(modal) {
+  const container = modal?.querySelector(".topic-slider-container");
+
+  if (!container || container.dataset.edgeStateBound === "true") {
+    updateSliderEdgeState(modal);
+    return;
+  }
+
+  container.dataset.edgeStateBound = "true";
+
+  const onScroll = throttle(() => {
+    updateSliderEdgeState(modal);
+  }, 30);
+
+  container.addEventListener("scroll", onScroll);
+  window.addEventListener("resize", onScroll);
+
+  updateSliderEdgeState(modal);
+}
+
 function scrollSliderToActive(modal) {
   const activeSlider = modal?.querySelector(".slider-item.active");
 
@@ -381,6 +434,41 @@ function scrollSliderToActive(modal) {
       inline: "center",
     });
   }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      updateSliderEdgeState(modal);
+    });
+  });
+}
+
+function getSliderScrollStep(modal) {
+  const container = modal?.querySelector(".topic-slider-container");
+  if (!container) {
+    return 0;
+  }
+
+  return Math.max(160, Math.round(container.clientWidth * 0.72));
+}
+
+function scrollSliderByDirection(modal, direction) {
+  const container = modal?.querySelector(".topic-slider-container");
+  if (!container) {
+    return;
+  }
+
+  const amount = getSliderScrollStep(modal) * direction;
+
+  container.scrollBy({
+    left: amount,
+    behavior: getScrollBehavior(),
+  });
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      updateSliderEdgeState(modal);
+    });
+  });
 }
 
 function getPostContentNode() {
@@ -509,14 +597,17 @@ function loadExternalContent(url) {
 }
 
 function buildSliderItemHtml(item, idx) {
+  const isActive = idx === navigatorState.currentIndex;
+
   return `
     <button
-      class="slider-item ${idx === navigatorState.currentIndex ? "active" : ""}"
+      class="slider-item ${isActive ? "active" : ""}"
       data-index="${idx}"
       title="${escapeHtml(item.title)}"
       type="button"
     >
       <span class="slider-item-title">${escapeHtml(item.title)}</span>
+      ${isActive ? `<span class="slider-item-count">${idx + 1}/${navigatorState.totalItems}</span>` : ""}
       ${item.external ? externalLinkButton(item.href, "in-slider") : ""}
     </button>
   `;
@@ -575,10 +666,44 @@ function renderModalChrome(api) {
               : ""
           }
 
-          <div class="topic-slider-container">
-            <div class="topic-slider">
-              ${navigatorState.items.map(buildSliderItemHtml).join("")}
+          <div class="topic-slider-shell">
+            <button
+              class="topic-slider-edge topic-slider-edge-prev"
+              type="button"
+              title="Scroll slider left"
+            >
+              <svg
+                class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string"
+                width="1em"
+                height="1em"
+                aria-hidden="true"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <use href="#arrow-left"></use>
+              </svg>
+            </button>
+
+            <div class="topic-slider-container">
+              <div class="topic-slider">
+                ${navigatorState.items.map(buildSliderItemHtml).join("")}
+              </div>
             </div>
+
+            <button
+              class="topic-slider-edge topic-slider-edge-next"
+              type="button"
+              title="Scroll slider right"
+            >
+              <svg
+                class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string"
+                width="1em"
+                height="1em"
+                aria-hidden="true"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <use href="#arrow-right"></use>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -647,6 +772,9 @@ function renderModalChrome(api) {
   } else {
     enhanceCooked(api, contentArea);
   }
+
+  bindSliderScrollState(modal);
+  updateSliderEdgeState(modal);
 }
 
 function clickExistingCollectionLink(item) {
@@ -740,7 +868,26 @@ const updateModalContent = throttle((api, index) => {
     link.classList.toggle("active", idx === index)
   );
 
-  setTimeout(() => scrollSliderToActive(modal), 100);
+  sliderItems.forEach((sliderItem, idx) => {
+    let count = sliderItem.querySelector(".slider-item-count");
+
+    if (idx === index) {
+      if (!count) {
+        count = document.createElement("span");
+        count.className = "slider-item-count";
+        sliderItem.querySelector(".slider-item-title")?.after(count);
+      }
+      count.textContent = `${idx + 1}/${navigatorState.totalItems}`;
+    } else if (count) {
+      count.remove();
+    }
+  });
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      scrollSliderToActive(modal);
+    });
+  });
 
   if (item.external) {
     modal.classList.add("external-url-active");
@@ -821,6 +968,20 @@ function bindDelegatedModalEvents(api) {
       navigatorState.currentIndex < navigatorState.totalItems - 1
     ) {
       updateModalContent(api, navigatorState.currentIndex + 1);
+      return;
+    }
+
+    const sliderPrev = e.target.closest(".topic-slider-edge-prev");
+    if (sliderPrev) {
+      const modalRoot = getModal();
+      scrollSliderByDirection(modalRoot, -1);
+      return;
+    }
+
+    const sliderNext = e.target.closest(".topic-slider-edge-next");
+    if (sliderNext) {
+      const modalRoot = getModal();
+      scrollSliderByDirection(modalRoot, 1);
       return;
     }
 
