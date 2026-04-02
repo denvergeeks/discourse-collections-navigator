@@ -8,7 +8,7 @@
   align-items: stretch;
   justify-content: space-between;
   gap: 0.75rem;
-  margin: 0 0 1rem 0;
+  margin: 0 0 1rem;
   padding: 0.75rem;
   border: 1px solid var(--primary-low-mid);
   border-radius: 12px;
@@ -18,14 +18,14 @@
   .collections-nav-toggle {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 0.65rem;
     min-width: 0;
     flex: 1 1 auto;
-    justify-content: flex-start;
-    text-align: left;
     padding: 0.85rem 1rem;
     border-radius: 10px;
     background: var(--tertiary-low);
+    text-align: left;
 
     .nav-text {
       min-width: 0;
@@ -48,11 +48,11 @@
     flex: 0 0 auto;
 
     .btn {
-      min-width: 44px;
-      min-height: 44px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      min-width: 44px;
+      min-height: 44px;
       border-radius: 10px;
     }
   }
@@ -71,15 +71,13 @@
 }
 
 .collections-nav-modal {
-  width: 96vw;
-  height: 92vh;
-  /* width: min(1280px, 96vw); */
-  /* max-height: 92vh; */
   display: flex;
   flex-direction: column;
+  width: 96vw;
+  height: 92vh;
   overflow: hidden;
-  border-radius: 16px;
   border: 1px solid var(--primary-low-mid);
+  border-radius: 16px;
   background: var(--secondary);
   box-shadow: 0 20px 50px rgb(0 0 0 / 0.22);
 }
@@ -87,8 +85,8 @@
 .collections-nav-modal .modal-header {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 0.75rem;
   align-items: start;
+  gap: 0.75rem;
   padding: 1rem 1rem 0.75rem;
   border-bottom: 1px solid var(--primary-low-mid);
   background: var(--secondary);
@@ -105,7 +103,7 @@
 }
 
 .collections-nav-modal .collection-description {
-  margin: 0.35rem 0 0 0;
+  margin: 0.35rem 0 0;
   color: var(--primary-medium);
   line-height: 1.45;
 }
@@ -119,7 +117,17 @@
   height: 42px;
   border-radius: 10px;
   box-sizing: content-box;
-  margin-right: 0; // adjust if you want spacing from header title
+
+  .d-icon,
+  svg {
+    display: inline-block;
+    font-size: var(--font-up-4);
+    line-height: var(--line-height-large);
+  }
+}
+
+.collections-nav-modal .modal-close-btn {
+  color: var(--header_primary-low-mid);
 
   &:focus-visible,
   .discourse-no-touch &:hover {
@@ -128,11 +136,33 @@
 
   .d-icon,
   svg {
-    font-size: var(--font-up-6);
-    line-height: var(--line-height-large);
-    display: inline-block;
     color: var(--header_primary-low-mid);
   }
+}
+
+.collections-nav-modal .modal-sidebar-toggle {
+  border: 1px solid var(--primary-low-mid);
+  background: var(--secondary);
+  color: var(--primary-high);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--tertiary-low);
+    border-color: var(--tertiary);
+    color: var(--tertiary);
+  }
+
+  .d-icon,
+  svg {
+    color: currentColor;
+  }
+}
+
+.collections-nav-modal.collections-sidebar-open .modal-sidebar-toggle {
+  background: var(--highlight-medium);
+  border-color: var(--tertiary);
+  color: var(--tertiary);
 }
 
 .collections-nav-modal .topic-slider-shell {
@@ -150,9 +180,9 @@
   position: absolute;
   top: 0;
   bottom: 0.25rem;
+  z-index: 1;
   width: 2.25rem;
   pointer-events: none;
-  z-index: 1;
   opacity: 0;
   transition: opacity 0.18s ease;
 }
@@ -176,18 +206,18 @@
 }
 
 .collections-nav-modal .topic-slider-edge {
+  position: relative;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   width: 2.4rem;
   height: 2.4rem;
   border: 1px solid var(--primary-low-mid);
   border-radius: 999px;
   background: var(--secondary-very-high);
   color: var(--primary-high);
-  flex: 0 0 auto;
-  position: relative;
-  z-index: 2;
   opacity: 1;
   transform: translateX(0);
   transition:
@@ -250,16 +280,16 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  min-height: 40px;
+  flex: 0 0 auto;
   min-width: 0;
   max-width: 26rem;
+  min-height: 40px;
   padding: 0.6rem 0.85rem;
   border: 1px solid var(--primary-low-mid);
   border-radius: 999px;
   background: var(--secondary-very-high);
   color: var(--primary-high);
   white-space: nowrap;
-  flex: 0 0 auto;
   transition:
     background 0.18s ease,
     border-color 0.18s ease,
@@ -308,12 +338,12 @@
   min-width: 3rem;
   padding: 0.15rem 0.55rem;
   border-radius: 999px;
+  background: rgb(255 255 255 / 0.18);
+  color: inherit;
   font-size: 0.8rem;
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.01em;
-  background: rgb(255 255 255 / 0.18);
-  color: inherit;
 }
 
 .collections-nav-modal.collections-sidebar-open .topic-slider-shell {
@@ -322,7 +352,6 @@
 
 .collections-nav-modal .modal-body-split {
   display: flex;
-  grid-template-columns: 320px minmax(0, 1fr);
   min-height: 0;
   flex: 1 1 auto;
   overflow: hidden;
@@ -330,11 +359,13 @@
 
 .collections-nav-modal .modal-items-sidebar {
   display: none;
-  min-width: 0;
+  flex: 0 0 320px;
+  width: 320px;
+  min-width: 320px;
   overflow: auto;
+  padding: 0.75rem;
   border-right: 1px solid var(--primary-low-mid);
   background: var(--secondary-very-high);
-  padding: 0.75rem;
 }
 
 .collections-nav-modal.collections-sidebar-open .modal-items-sidebar {
@@ -342,12 +373,12 @@
 }
 
 .collections-nav-modal .collection-items-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .collections-nav-modal .collection-item {
@@ -360,8 +391,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 0.6rem;
-  /* width: 100%; */
-  width: auto;
+  width: 100%;
   padding: 0.75rem 0.85rem;
   border: 1px solid var(--primary-low-mid);
   border-radius: 12px;
@@ -425,8 +455,8 @@
   width: 1.9rem;
   height: 1.9rem;
   border-radius: 999px;
-  color: var(--tertiary);
   background: transparent;
+  color: var(--tertiary);
   transition: background 0.15s ease, color 0.15s ease;
 
   &:hover {
@@ -435,13 +465,13 @@
 }
 
 .collections-nav-modal .modal-content-area {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: var(--secondary);
   overflow: hidden;
+  background: var(--secondary);
 }
 
 .collections-nav-modal .content-header {
@@ -468,8 +498,8 @@
 }
 
 .collections-nav-modal .content-header-actions a.btn.btn-primary.collections-open-external-button {
-    padding: .2em .4em;
-    font-size: small;
+  padding: 0.2em 0.4em;
+  font-size: small;
 }
 
 .collections-nav-modal .cooked-content {
@@ -487,18 +517,17 @@
 }
 
 .collections-nav-modal .external-url-content-wrapper {
-  flex: 1;
-  display: flex;
   position: relative;
+  display: flex;
+  flex: 1;
   overflow-y: auto;
-  /* padding: 0.9rem 1rem 1rem; */
   padding: 0;
   background: var(--secondary);
 }
 
 .collections-nav-modal .external-url-header {
-  margin-bottom: 0.75rem;
   display: none;
+  margin-bottom: 0.75rem;
 
   h4 {
     margin: 0;
@@ -528,8 +557,8 @@
   padding: 1rem;
   border: 1px dashed var(--primary-low-mid);
   border-radius: 12px;
-  color: var(--primary-medium);
   background: var(--secondary-very-high);
+  color: var(--primary-medium);
   text-align: center;
 }
 
@@ -538,7 +567,6 @@
   width: 100%;
   min-height: 0;
   border: 1px solid var(--primary-low-mid);
-  /* border-radius: 12px; */
   background: var(--secondary);
 }
 
@@ -567,8 +595,8 @@
 }
 
 .collections-nav-modal .paging-text {
-  font-weight: 700;
   color: var(--primary-medium);
+  font-weight: 700;
 }
 
 @media (max-width: 767px) {
@@ -588,8 +616,8 @@
 
   .collections-nav-modal {
     width: 100vw;
-    max-height: 100vh;
     height: 100vh;
+    max-height: 100vh;
     border-radius: 0;
   }
 
@@ -650,18 +678,17 @@
 
   .collections-nav-modal .slider-item-count {
     min-width: 2.65rem;
-    font-size: 0.74rem;
     padding: 0.1rem 0.42rem;
-  }
-
-  .collections-nav-modal .modal-body-split {
-    grid-template-columns: 1fr;
+    font-size: 0.74rem;
   }
 
   .collections-nav-modal .modal-items-sidebar {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    max-height: 38vh;
     border-right: 0;
     border-bottom: 1px solid var(--primary-low-mid);
-    max-height: 38vh;
   }
 
   .collections-nav-modal .content-header {
@@ -688,6 +715,5 @@
 }
 
 code {
-  /* overflow-wrap: anywhere; */
   overflow-wrap: break-word;
 }
