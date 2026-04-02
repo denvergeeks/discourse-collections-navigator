@@ -179,6 +179,17 @@ export default apiInitializer("1.24.0", (api) => {
     return content?.cloneNode(true) || null;
   }
 
+  function getTopicInsertAnchor() {
+    return (
+      document.querySelector(".posts") ||
+      document.querySelector(".post-stream") ||
+      document.querySelector(".topic-area") ||
+      document.querySelector(".topic-body") ||
+      document.querySelector(".topic-post") ||
+      document.querySelector("#main-outlet")
+    );
+  }
+
   function enhanceCooked(element) {
     if (!element) {
       return;
@@ -187,7 +198,7 @@ export default apiInitializer("1.24.0", (api) => {
     api.applyDecoratorsToElement?.(element);
   }
 
-  function waitForCollectionsDom(callback, attempts = 12) {
+  function waitForCollectionsDom(callback, attempts = 30) {
     if (attempts <= 0) {
       return;
     }
@@ -195,14 +206,14 @@ export default apiInitializer("1.24.0", (api) => {
     const sidebarPanel = document.querySelector(
       ".discourse-collections-sidebar-panel"
     );
-    const postsContainer = document.querySelector(".posts");
+    const insertAnchor = getTopicInsertAnchor();
 
-    if (sidebarPanel && postsContainer) {
-      callback(sidebarPanel, postsContainer);
+    if (sidebarPanel && insertAnchor) {
+      callback(sidebarPanel, insertAnchor);
       return;
     }
 
-    setTimeout(() => waitForCollectionsDom(callback, attempts - 1), 150);
+    setTimeout(() => waitForCollectionsDom(callback, attempts - 1), 200);
   }
 
   function cleanupExistingUi() {
@@ -464,7 +475,7 @@ export default apiInitializer("1.24.0", (api) => {
 
     cleanupExistingUi();
 
-    waitForCollectionsDom((sidebarPanel, postsContainer) => {
+    waitForCollectionsDom((sidebarPanel, insertAnchor) => {
       const links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
       const items = buildItems(links);
 
@@ -529,7 +540,12 @@ export default apiInitializer("1.24.0", (api) => {
           </button>
         </div>
       `;
-      postsContainer.parentNode?.insertBefore(navBar, postsContainer);
+
+      if (insertAnchor.parentNode) {
+        insertAnchor.parentNode.insertBefore(navBar, insertAnchor);
+      } else {
+        return;
+      }
 
       const modalOverlay = document.createElement("div");
       modalOverlay.className = "collections-nav-modal-overlay";
