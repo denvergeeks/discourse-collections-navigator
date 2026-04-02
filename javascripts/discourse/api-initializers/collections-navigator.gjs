@@ -3,6 +3,7 @@ import { apiInitializer } from "discourse/lib/api";
 export default apiInitializer("1.24.0", (api) => {
   let keyboardHandlerBound = false;
   let resizerBound = false;
+  let activeModalState = null;
 
   function getScrollBehavior() {
     return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
@@ -28,15 +29,38 @@ export default apiInitializer("1.24.0", (api) => {
 
   function getCssPxNumber(element, varName, fallback) {
     const raw = getComputedStyle(element).getPropertyValue(varName).trim();
+
     if (!raw) {
       return fallback;
     }
-    if (raw.startsWith("min(") || raw.startsWith("max(") || raw.startsWith("clamp(")) {
+
+    if (
+      raw.startsWith("min(") ||
+      raw.startsWith("max(") ||
+      raw.startsWith("clamp(")
+    ) {
       return fallback;
     }
+
     const parsed = parseFloat(raw.replace("px", ""));
     return Number.isNaN(parsed) ? fallback : parsed;
   }
+
+  const externalLinkIcon = `
+    <svg
+      class="fa d-icon svg-icon svg-string"
+      width="1em"
+      height="1em"
+      viewBox="0 0 512 512"
+      aria-hidden="true"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        fill="currentColor"
+        d="M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l82.7 0L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3l0 82.7c0 17.7 14.3 32 32 32s32-14.3 32-32l0-160c0-17.7-14.3-32-32-32L320 0zM80 32C35.8 32 0 67.8 0 112L0 432c0 44.2 35.8 80 80 80l320 0c44.2 0 80-35.8 80-80l0-112c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 112c0 8.8-7.2 16-16 16L80 448c-8.8 0-16-7.2-16-16l0-320c0-8.8 7.2-16 16-16l112 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L80 32z"
+      />
+    </svg>
+  `;
 
   function ensureSidebarResizer(modal) {
     if (!modal) {
@@ -61,6 +85,7 @@ export default apiInitializer("1.24.0", (api) => {
     resizer.setAttribute("role", "separator");
     resizer.setAttribute("aria-orientation", "vertical");
     resizer.setAttribute("aria-label", "Resize collection sidebar");
+    resizer.setAttribute("aria-valuemin", "240");
     resizer.tabIndex = 0;
 
     splitBody.insertBefore(resizer, contentArea);
@@ -84,17 +109,29 @@ export default apiInitializer("1.24.0", (api) => {
       }
 
       const splitBody = modal.querySelector(".modal-body-split");
-      const sidebar = modal.querySelector(".modal-items-sidebar");
-      if (!splitBody || !sidebar) {
+      if (!splitBody) {
         return;
       }
 
       event.preventDefault();
 
       const splitRect = splitBody.getBoundingClientRect();
-      const minWidth = getCssPxNumber(modal, "--collections-sidebar-min-width", 240);
-      const maxWidthFallback = Math.max(minWidth, Math.floor(splitRect.width * 0.45));
-      const maxWidth = getCssPxNumber(modal, "--collections-sidebar-max-width", maxWidthFallback);
+      const minWidth = getCssPxNumber(
+        modal,
+        "--collections-sidebar-min-width",
+        240
+      );
+      const maxWidthFallback = Math.max(
+        minWidth,
+        Math.floor(splitRect.width * 0.45)
+      );
+      const maxWidth = getCssPxNumber(
+        modal,
+        "--collections-sidebar-max-width",
+        maxWidthFallback
+      );
+
+      resizer.setAttribute("aria-valuemax", String(Math.round(maxWidth)));
 
       modal.classList.add("is-resizing");
       document.body.classList.add("collections-is-resizing");
@@ -136,14 +173,26 @@ export default apiInitializer("1.24.0", (api) => {
         return;
       }
 
-      const currentWidth = getCssPxNumber(modal, "--collections-sidebar-width", 320);
-      const minWidth = getCssPxNumber(modal, "--collections-sidebar-min-width", 240);
+      const currentWidth = getCssPxNumber(
+        modal,
+        "--collections-sidebar-width",
+        320
+      );
+      const minWidth = getCssPxNumber(
+        modal,
+        "--collections-sidebar-min-width",
+        240
+      );
       const splitBody = modal.querySelector(".modal-body-split");
       const splitRect = splitBody?.getBoundingClientRect();
       const maxWidthFallback = splitRect
         ? Math.max(minWidth, Math.floor(splitRect.width * 0.45))
         : 520;
-      const maxWidth = getCssPxNumber(modal, "--collections-sidebar-max-width", maxWidthFallback);
+      const maxWidth = getCssPxNumber(
+        modal,
+        "--collections-sidebar-max-width",
+        maxWidthFallback
+      );
 
       let nextWidth = null;
 
@@ -165,6 +214,7 @@ export default apiInitializer("1.24.0", (api) => {
       nextWidth = clamp(nextWidth, minWidth, maxWidth);
       modal.style.setProperty("--collections-sidebar-width", `${nextWidth}px`);
       resizer.setAttribute("aria-valuenow", String(Math.round(nextWidth)));
+      resizer.setAttribute("aria-valuemax", String(Math.round(maxWidth)));
     };
 
     document.addEventListener("pointerdown", onPointerDown);
@@ -174,14 +224,16 @@ export default apiInitializer("1.24.0", (api) => {
 
   api.onPageChange(() => {
     setTimeout(() => {
-      const sidebarPanel = document.querySelector(".discourse-collections-sidebar-panel");
+      const sidebarPanel = document.querySelector(
+        ".discourse-collections-sidebar-panel"
+      );
       const postsContainer = document.querySelector(".posts");
 
       if (!sidebarPanel || !postsContainer) {
         return;
       }
 
-      let links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
+      const links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
 
       document
         .querySelectorAll(".collections-nav-injected")
@@ -190,22 +242,30 @@ export default apiInitializer("1.24.0", (api) => {
         .querySelectorAll(".collections-nav-modal-overlay")
         .forEach((el) => el.remove());
 
-      const collectionTitleEl = document.querySelector(".collection-sidebar__title");
-      const collectionDescEl = document.querySelector(".collection-sidebar__desc");
+      const collectionTitleEl = document.querySelector(
+        ".collection-sidebar__title"
+      );
+      const collectionDescEl = document.querySelector(
+        ".collection-sidebar__desc"
+      );
       const collectionName =
         collectionTitleEl?.textContent?.trim() || "Collection";
       const collectionDesc = collectionDescEl?.textContent?.trim() || "";
 
       const isExternalUrl = (href) => {
-        if (!href) return false;
+        if (!href) {
+          return false;
+        }
+
         if (href.startsWith("http://") || href.startsWith("https://")) {
           try {
             const url = new URL(href);
             return url.hostname !== window.location.hostname;
-          } catch (e) {
+          } catch {
             return false;
           }
         }
+
         return false;
       };
 
@@ -215,16 +275,26 @@ export default apiInitializer("1.24.0", (api) => {
         let title = link
           .querySelector(".collection-link-content-text")
           ?.textContent?.trim();
-        if (!title)
+
+        if (!title) {
           title = link
             .querySelector(".sidebar-section-link-content-text")
             ?.textContent?.trim();
-        if (!title)
+        }
+
+        if (!title) {
           title = link
             .querySelector("[class*='content-text']")
             ?.textContent?.trim();
-        if (!title) title = link.textContent?.trim();
-        if (!title) title = "Untitled";
+        }
+
+        if (!title) {
+          title = link.textContent?.trim();
+        }
+
+        if (!title) {
+          title = "Untitled";
+        }
 
         const external = isExternalUrl(href);
         const idMatch = href ? href.match(/\/(\d+)$/) : null;
@@ -247,6 +317,7 @@ export default apiInitializer("1.24.0", (api) => {
         if (item.external || !item.href) {
           return false;
         }
+
         const parts = item.href.split("/");
         const slugPart = parts[2];
         return slugPart && currentUrl.includes(slugPart);
@@ -263,12 +334,15 @@ export default apiInitializer("1.24.0", (api) => {
         let content = document.querySelector(
           ".topic-post[data-post-number='1'] .cooked"
         );
+
         if (!content) {
           content = document.querySelector(".topic-body .cooked");
         }
+
         if (!content) {
           return null;
         }
+
         return content.cloneNode(true);
       };
 
@@ -288,12 +362,12 @@ export default apiInitializer("1.24.0", (api) => {
         const offsetTop = rect.top + window.scrollY;
         const offsetLeft = rect.left + window.scrollX;
 
-        wrapper.style.height = "calc(100vh - " + offsetTop + "px)";
+        wrapper.style.height = `calc(100vh - ${offsetTop}px)`;
 
         iframe.style.position = "absolute";
         iframe.style.top = "0";
-        iframe.style.left = offsetLeft > 0 ? "-" + offsetLeft + "px" : "0";
-        iframe.style.width = wrapper.offsetWidth + "px";
+        iframe.style.left = offsetLeft > 0 ? `-${offsetLeft}px` : "0";
+        iframe.style.width = `${wrapper.offsetWidth}px`;
         iframe.style.height = "100%";
         iframe.style.border = "none";
         iframe.style.display = "block";
@@ -310,12 +384,13 @@ export default apiInitializer("1.24.0", (api) => {
           id: "collections-navigator-modal",
         });
 
-        api.applyDecoratorsToElement?.(elementecoratorsToElement?.(element);
+        api.applyDecoratorsToElement?.(element);
       };
 
       const navBar = document.createElement("div");
       navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i class="btn btn--primary collections-nav-toggle" title="Open collection navigator" type="button">
+      navBar.innerHTML = `
+        <button class="btn btn--primary collections-nav-toggle" title="Open collection navigator" type="button">
           <svg class="fa d-icon d-icon-collection-pip svg-icon fa-width-auto prefix-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
             <use href="#collection-pip"></use>
           </svg>
@@ -327,12 +402,11 @@ export default apiInitializer("1.24.0", (api) => {
           } title="Previous (arrow key)" type="button">
             <svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
               <use href="#arrow-left"></use>
-            </ecoratorsToElement?.(element);
-      };
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iw key)" type="button">
+            </svg>
+          </button>
+          <button class="btn btn--secondary collections-nav-next" ${
+            currentIndex === totalItems - 1 ? "disabled" : ""
+          } title="Next (arrow key)" type="button">
             <svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
               <use href="#arrow-right"></use>
             </svg>
@@ -352,172 +426,171 @@ export default apiInitializer("1.24.0", (api) => {
               </svg>
             </button>
             <div class="modal-header-content">
-              <h2 class="modal-title">${collectionName}<ecoratorsToElement?.(element);
-      };
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.idiv class="topic-slider-container">
+              <h2 class="modal-title">${collectionName}</h2>
+              ${
+                collectionDesc
+                  ? `<p class="collection-description">${collectionDesc}</p>`
+                  : ""
+              }
+              <div class="topic-slider-container">
                 <div class="topic-slider">
                   ${items
                     .map(
                       (item, idx) => `
-                    <button class="slider-item ${
-                      idx === currentIndex ? "active" : ""
-                    }" data-index="${idx}" title="${item.title}">
-                      ${item.external ? `<svg class="fa d-icon svg-icon svg-string" width="1em" height="1em" viewBox="0 0 512 512" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l82.7 0L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3l0 82.7c0 17.7 14.3 32 32 32s32-14.3 32-32l0-160c0-17.7-14.3-32-32-32L320 0zM8ecoratorsToElement?.(element);
-      };
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.illections-nav-injected";
-      navBar.i     navBar.inav-injected";
-      navBar.iinjected";
-      navBar.i-injected";
-      navBar.inav-bar collections-nav-injected";
-      navBar.ieateElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i                 )
+                        <button class="slider-item ${
+                          idx === currentIndex ? "active" : ""
+                        }" data-index="${idx}" title="${item.title}">
+                          ${item.external ? externalLinkIcon : ""}
+                          <span class="slider-item-title">${item.title}</span>
+                          <span class="slider-item-count">${idx + 1}/${totalItems}</span>
+                        </button>
+                      `
+                    )
                     .join("")}
                 </div>
               </div>
             </div>
             <button class="modal-close-btn" aria-label="Close modal" type="button">
-              <svg class="fa d-icon d-icon-times svg-ecoratorsToElement?.(element);
-      };
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i       </div>
+              <svg class="fa d-icon d-icon-times svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <use href="#times"></use>
+              </svg>
+            </button>
+          </div>
           <div class="modal-body-split">
             <div class="modal-items-sidebar collapsed">
               <ul class="collection-items-list">
                 ${items
                   .map(
                     (item, idx) => `
-                  <li class="collection-item ${
-                    idx === currentIndex ? "active" : ""
-                  }">
-                    <div class="collection-item-link ${
-                      item.external ? "external-link" : ""
-                    }" data-iecoratorsToElement?.(element);
-      };
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i        ${
-                        idx === currentIndex
-                          ? '<span class="d-icon d-icon-check"></span>'
-                          : ""
-                      }
-                      ${
-                        item.external
-                          ? `<span class="collections-external-link-button" ecoratorsToElement?.(element);
-      };
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.icreateElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ient("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i
-      navBar.iv-injected";
-      navBar.icollections-nav-injected";
-      navBar.iollections-nav-injected";
-      navBar.icollections-nav-injected";
-      navBar.ilections-nav-injected";
-      navBar.iollections-nav-injected";
-      navBar.iollections-nav-injected";
-      navBar.iem-nav-bar collections-nav-injected";
-      navBar.iollections-nav-injected";
-      navBar.iav-bar collections-nav-injected";
-      navBar.ins-nav-injected";
-      navBar.i(element);
-      };
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i         <div claecoratorsToElement?.(element);
-      };
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i   const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i      navBar.iement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.icollections-nav-injected";
-      navBar.is-nav-injected";
-      navBar.iBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iiv>
+                      <li class="collection-item ${
+                        idx === currentIndex ? "active" : ""
+                      }">
+                        <div class="collection-item-link ${
+                          item.external ? "external-link" : ""
+                        }" data-index="${idx}" title="${item.title}">
+                          <span class="item-number">${idx + 1}</span>
+                          <span class="item-title">${item.title}</span>
+                          ${
+                            idx === currentIndex
+                              ? '<span class="d-icon d-icon-check"></span>'
+                              : ""
+                          }
+                          ${
+                            item.external
+                              ? `<span class="collections-external-link-button" aria-hidden="true">${externalLinkIcon}</span>`
+                              : ""
+                          }
+                        </div>
+                      </li>
+                    `
+                  )
+                  .join("")}
+              </ul>
+            </div>
+            <div class="modal-content-area">
+              <div class="content-header">
+                <h3 class="content-title">${currentItem.title}</h3>
+                <div class="content-header-actions"></div>
+              </div>
+              <div class="cooked-content">
+                ${cookedContent}
+              </div>
+            </div>
+          </div>
+          <div class="modal-nav-footer">
+            <button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ${
+              currentIndex === 0 ? "disabled" : ""
+            }>
+              <svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <use href="#arrow-left"></use>
+              </svg>
+              Previous
+            </button>
+            <div class="modal-paging">
+              <span class="paging-text">${currentIndex + 1}/${totalItems}</span>
+            </div>
             <button class="btn btn--secondary modal-content-next" title="Next item" type="button" ${
-              currentIndex === totalIecoratorsToElement?.(element);
-      };
+              currentIndex === totalItems - 1 ? "disabled" : ""
+            }>
+              Next
+              <svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <use href="#arrow-right"></use>
+              </svg>
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ien="true" xmlns="http://www.w3.org/2000/svg">
-                <use href="#arrow-right"></ecoratorsToElement?.(element);
-      };
+      const modalPanel = modal.querySelector(".collections-nav-modal");
+      ensureSidebarResizer(modalPanel);
+      bindSidebarResizer();
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ions-nav-modal");
-      ensureSidecoratorsToElement?.(element);
-      };
+      const contentArea = modal.querySelector(".cooked-content");
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iTML = "";
+      if (cookedNode && contentArea) {
+        contentArea.innerHTML = "";
         contentArea.appendChild(cookedNode);
       } else {
-        enhecoratorsToElement?.(element);
-      };
+        enhanceCooked(contentArea);
+      }
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ited";
-      navBar.iquerySelector(".collectionsecoratorsToElement?.(element);
-      };
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ilector(".content-heecoratorsToElement?.(element);
-      };
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i = modal.querySelector(".modal-content-prev");
+      const toggleBtn = navBar.querySelector(".collections-nav-toggle");
+      const prevBtn = navBar.querySelector(".collections-nav-prev");
+      const nextBtn = navBar.querySelector(".collections-nav-next");
+      const closeBtn = modal.querySelector(".modal-close-btn");
+      const itemLinks = modal.querySelectorAll(".collection-item-link");
+      const sliderItems = modal.querySelectorAll(".slider-item");
+      const contentTitle = modal.querySelector(".content-title");
+      const contentHeaderActions = modal.querySelector(
+        ".content-header-actions"
+      );
+      const sidebarToggle = modal.querySelector(".modal-sidebar-toggle");
+      const sidebar = modal.querySelector(".modal-items-sidebar");
+      const modalContentPrev = modal.querySelector(".modal-content-prev");
       const modalContentNext = modal.querySelector(".modal-content-next");
       const pagingText = modal.querySelector(".paging-text");
-      const topicSliderContainer = modal.querySelector(".topic-slider-container");
+      const topicSliderContainer = modal.querySelector(
+        ".topic-slider-container"
+      );
 
       let selectedIndex = currentIndex;
       let sidebarOpen = false;
 
       const showModal = () => {
         modal.style.display = "flex";
+        activeModalState = {
+          modal,
+          selectedIndexRef: () => selectedIndex,
+          prev: () => {
+            if (selectedIndex > 0) {
+              updateModalContent(selectedIndex - 1);
+            }
+          },
+          next: () => {
+            if (selectedIndex < totalItems - 1) {
+              updateModalContent(selectedIndex + 1);
+            }
+          },
+          hide: () => {
+            modal.style.display = "none";
+          },
+        };
       };
+
       const hideModal = () => {
         modal.style.display = "none";
+        if (activeModalState?.modal === modal) {
+          activeModalState = null;
+        }
       };
 
-      const toggleSidecoratorsToElement?.(element);
-      };
+      const toggleSidebar = () => {
+        sidebarOpen = !sidebarOpen;
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i
+        if (sidebarOpen) {
+          sidebar.classList.remove("collapsed");
+          topicSliderContainer.classList.add("collapsed");
           modalPanel.classList.add("collections-sidebar-open");
         } else {
           topicSliderContainer.classList.remove("collapsed");
@@ -533,117 +606,142 @@ export default apiInitializer("1.24.0", (api) => {
             behavior: getScrollBehavior(),
             block: "nearest",
             inline: "center",
-          }ecoratorsToElement?.(element);
+          });
+        }
       };
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i}
+      const updatePageContent = (index) => {
+        if (index < 0 || index >= totalItems) {
+          return;
+        }
+
+        if (items[index].external) {
+          return;
+        }
 
         selectedIndex = index;
 
         const navText = navBar.querySelector(".nav-text");
-        navText.textConteecoratorsToElement?.(element);
-      };
+        navText.textContent = `${collectionName}: ${items[index].title} (${index + 1}/${totalItems})`;
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iitems[index].topicIecoratorsToElement?.(element);
-      };
+        prevBtn.disabled = index === 0;
+        nextBtn.disabled = index === totalItems - 1;
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.int);
-      };
+        if (items[index].topicId) {
+          fetch(`/t/${items[index].topicId}.json`)
+            .then((response) => response.json())
+            .then((data) => {
+              document.title = items[index].title;
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i   const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.inavBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.idiv");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i-bar collections-nav-injected";
-      navBar.i           targetConecoratorsToElement?.(element);
-      };
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iment?.(element);
-      };
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i               enhanceCooked(targetContent);
+              let targetContent = document.querySelector(
+                ".topic-post[data-post-number='1'] .cooked"
+              );
+              if (!targetContent) {
+                targetContent = document.querySelector(".topic-body .cooked");
+              }
+              if (!targetContent) {
+                targetContent = document.querySelector(
+                  ".post-stream .posts .boxed-body"
+                );
+              }
+              if (!targetContent) {
+                targetContent = document.querySelector(".post-content");
+              }
+              if (!targetContent) {
+                targetContent = document.querySelector("[data-post-id] .cooked");
+              }
+              if (!targetContent) {
+                targetContent = document.querySelector(".cooked");
               }
 
-              contentTitle.textContent = items[index].tiecoratorsToElement?.(element);
-      };
+              const cooked = data.post_stream?.posts?.[0]?.cooked;
+              if (targetContent && cooked) {
+                targetContent.innerHTML = cooked;
+                enhanceCooked(targetContent);
+              }
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iatch((err) => console.error("Error updating content", err));
+              contentTitle.textContent = items[index].title;
+              if (cooked && contentArea) {
+                contentArea.innerHTML = cooked;
+                enhanceCooked(contentArea);
+              }
+            })
+            .catch((err) => console.error("Error updating content", err));
         }
       };
 
-      const loadExteecoratorsToElement?.(element);
+      const loadExternalContent = (url) => {
+        return `
+          <div class="external-url-header">
+            <h4>
+              <a href="${url}" target="_blank" rel="noopener noreferrer" class="external-url-link">
+                ${url.replace(/^https?:\/\//, "")}
+                ${externalLinkIcon}
+              </a>
+            </h4>
+          </div>
+          <div class="iframe-loading">Loading external content...</div>
+          <iframe
+            src="${url}"
+            class="external-topic-iframe"
+            sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-top-navigation"
+            loading="lazy"
+            title="External content: ${url}"
+          ></iframe>
+        `;
       };
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ir = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i };
+      const setupIframeHandlers = (container) => {
+        const iframe = container.querySelector(".external-topic-iframe");
+        const loadingDiv = container.querySelector(".iframe-loading");
+        const wrapper = container.querySelector(
+          ".cooked-content.external-url-content-wrapper"
+        );
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i = "collections-item-nav-bar collections-nav-injected";
-      navBar.illections-item-nav-bar collections-nav-injected";
-      navBar.i navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.icollections-nav-injected";
-      navBar.ilections-nav-injected";
-      navBar.i collections-nav-injected";
-      navBar.ilections-nav-injected";
-      navBar.iv-injected";
-      navBar.iollections-nav-injected";
-      navBar.i      navBar.im-nav-bar collections-nav-injected";
-      navBar.iv-injected";
-      navBar.ictions-nav-injected";
-      navBar.iar collections-nav-injected";
-      navBar.ilement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iv");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ieateElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i     navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i);
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i = "collections-item-nav-bar collections-nav-injected";
-      navBar.i-item-nav-bar collections-nav-injected";
-      navBar.inavBar.ins-item-nav-bar collections-nav-injected";
-      navBar.iav-bar collections-nav-injected";
-      navBar.ime = "collections-item-nav-bar collections-nav-injected";
-      navBar.ime = "collections-item-nav-bar collections-nav-injected";
-      navBar.iBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i.(element);
-      };
+        if (!iframe) {
+          return;
+        }
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i    if (loadingDiv && loadingDiv.style.display !== "none") {
+        const onResize = throttle(() => adjustIframe(iframe, wrapper), 100);
+
+        const onLoad = () => {
+          if (loadingDiv) {
+            loadingDiv.style.display = "none";
+          }
+          adjustIframe(iframe, wrapper);
+          window.addEventListener("resize", onResize);
+        };
+
+        const onError = () => {
+          if (loadingDiv) {
+            loadingDiv.style.display = "none";
+          }
+          if (wrapper) {
+            wrapper.style.visibility = "visible";
+          }
+          iframe.style.display = "none";
+          window.removeEventListener("resize", onResize);
+        };
+
+        iframe.addEventListener("load", onLoad);
+        iframe.addEventListener("error", onError);
+
+        setTimeout(() => {
+          if (loadingDiv && loadingDiv.style.display !== "none") {
             try {
               iframe.contentWindow.location.href;
-              onLoaecoratorsToElement?.(element);
+              onLoad();
+            } catch {
+              onError();
+            }
+          }
+        }, 5000);
       };
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i index >= totalItems) return;
+      const updateModalContent = throttle((index) => {
+        if (index < 0 || index >= totalItems) {
+          return;
+        }
 
         selectedIndex = index;
         contentTitle.textContent = items[index].title;
@@ -659,135 +757,134 @@ export default apiInitializer("1.24.0", (api) => {
         itemLinks.forEach((link, idx) =>
           link.classList.toggle("active", idx === index)
         );
-       ecoratorsToElement?.(element);
-      };
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.itent-wrapper");
+        setTimeout(scrollSliderToActive, 100);
+
+        if (items[index].external) {
+          modal.classList.add("external-url-active");
+          contentArea.classList.add("external-url-content-wrapper");
           contentArea.innerHTML = loadExternalContent(items[index].href);
           setupIframeHandlers(contentArea);
 
           contentHeaderActions.innerHTML = `
-            <a href="${itemsecoratorsToElement?.(element);
-      };
+            <a href="${items[index].href}" target="_blank" rel="noopener noreferrer" class="btn btn-primary collections-open-external-button">
+              ${externalLinkIcon}
+              Open in New Tab
+            </a>
+          `;
+        } else {
+          modal.classList.remove("external-url-active");
+          contentArea.classList.remove("external-url-content-wrapper");
+          contentArea.innerHTML = "<p>Loading...</p>";
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ieight="1em" viewBox=ecoratorsToElement?.(element);
-      };
+          if (items[index].topicId) {
+            fetch(`/t/${items[index].topicId}.json`)
+              .then((r) => r.json())
+              .then((data) => {
+                const cooked = data.post_stream?.posts?.[0]?.cooked;
+                contentArea.innerHTML = cooked || "<p>No content</p>";
+                enhanceCooked(contentArea);
+              })
+              .catch(() => {
+                contentArea.innerHTML = "<p>Error loading</p>";
+              });
+          }
+        }
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.illections-item-nav-bar collections-nav-injected";
-      navBar.ie = "collections-item-nav-bar collections-nav-injected";
-      navBar.iav-injected";
-      navBar.i     navBar.iollections-nav-injected";
-      navBar.icollections-nav-injected";
-      navBar.im-nav-bar collections-nav-injected";
-      navBar.illections-nav-injected";
-      navBar.i collections-nav-injected";
-      navBar.iinjected";
-      navBar.item-nav-bar collections-nav-injected";
-      navBar.iected";
-      navBar.i-injected";
-      navBar.ins-nav-injected";
-      navBar.ions-item-nav-bar collections-nav-injected";
-      navBar.i.iElement?.(element);
-      };
+        const navText = navBar.querySelector(".nav-text");
+        navText.textContent = `${collectionName}: ${items[index].title} (${index + 1}/${totalItems})`;
+        prevBtn.disabled = index === 0;
+        nextBtn.disabled = index === totalItems - 1;
+      }, SCROLL_THROTTLE_MS);
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i;
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i]?.cooked;
-                contentArea.innerHTML = coecoratorsToElement?.(element);
-      };
+      toggleBtn.addEventListener("click", showModal);
+      sidebarToggle.addEventListener("click", toggleSidebar);
+      closeBtn.addEventListener("click", hideModal);
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ielement);
-      };
+      prevBtn.addEventListener("click", () => {
+        if (selectedIndex > 0) {
+          updatePageContent(selectedIndex - 1);
+        }
+      });
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iitle} (${index + 1}/${totalItems})`;
-        prevBtn.disabled = indexecoratorsToElement?.(element);
-      };
+      nextBtn.addEventListener("click", () => {
+        if (selectedIndex < totalItems - 1) {
+          updatePageContent(selectedIndex + 1);
+        }
+      });
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.inavBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i;
-      };
+      modalContentPrev.addEventListener("click", () => {
+        if (selectedIndex > 0) {
+          updateModalContent(selectedIndex - 1);
+        }
+      });
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ivBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i);
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.idiv");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.inav-injected";
-      navBar.iavBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ieateElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i= document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ivBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iions-nav-injected";
-      navBar.iclassName = "collections-item-nav-bar collections-nav-injected";
-      navBar.i-nav-injected";
-      navBar.ilassName = "collections-item-nav-bar collections-nav-injected";
-      navBar.i   navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i-item-nav-bar collections-nav-injected";
-      navBar.ir.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.issName = "collections-item-nav-bar collections-nav-injected";
-      navBar.i);
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ictions-item-nav-bar collections-nav-injected";
-      navBar.i"collections-item-nav-bar collections-nav-injected";
-      navBar.i   navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i= "collections-item-nav-bar collections-nav-injected";
-      navBar.i= document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i     navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i
+      modalContentNext.addEventListener("click", () => {
+        if (selectedIndex < totalItems - 1) {
+          updateModalContent(selectedIndex + 1);
+        }
+      });
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i= document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.ilement);
-      };
+      itemLinks.forEach((link) => {
+        link.style.cursor = "pointer";
+        link.addEventListener("click", () => {
+          const index = parseInt(link.getAttribute("data-index"), 10);
+          updateModalContent(index);
+        });
+      });
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i    navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iections-item-nav-bar collections-nav-injected";
-      navBar.ions-nav-injected";
-      navBar.i"div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.i= "collections-item-nav-bar collections-nav-injected";
-      navBar.i "collections-item-nav-bar collections-nav-injected";
-      navBar.im-nav-bar collections-nav-injected";
-      navBar.iv");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.iem-nav-bar collections-nav-injected";
-      navBar.iv-bar collections-nav-injected";
-      navBar.is-nav-injected";
-      navBar.iar collections-nav-injected";
-      navBar.i     navBar.i     navBar.i.(element);
-      };
+      sliderItems.forEach((item) => {
+        item.addEventListener("click", () => {
+          const index = parseInt(item.getAttribute("data-index"), 10);
+          updateModalContent(index);
+        });
+      });
 
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.inavBar.iar.i
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) {
+          hideModal();
+        }
+      });
+
+      if (!keyboardHandlerBound) {
+        let lastKeyPress = 0;
+
+        document.addEventListener("keydown", (e) => {
+          if (!activeModalState || activeModalState.modal.style.display !== "flex") {
+            return;
+          }
+
+          const now = Date.now();
+          const selected = activeModalState.selectedIndexRef();
+
+          if (e.key === "ArrowLeft" && selected > 0) {
+            if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
+              return;
+            }
+            if (document.activeElement?.classList?.contains("collections-sidebar-resizer")) {
+              return;
+            }
+            lastKeyPress = now;
+            e.preventDefault();
+            activeModalState.prev();
+          } else if (e.key === "ArrowRight" && selected < totalItems - 1) {
+            if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
+              return;
+            }
+            if (document.activeElement?.classList?.contains("collections-sidebar-resizer")) {
+              return;
+            }
+            lastKeyPress = now;
+            e.preventDefault();
+            activeModalState.next();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            activeModalState.hide();
+          }
+        });
+
+        keyboardHandlerBound = true;
+      }
+    }, 500);
+  });
+});
