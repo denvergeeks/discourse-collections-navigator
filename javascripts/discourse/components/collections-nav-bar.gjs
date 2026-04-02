@@ -3,16 +3,20 @@ import { action } from "@ember/object";
 import { getCollectionsNavigatorState } from "../lib/collections-navigator-state";
 
 export default class CollectionsNavBar extends Component {
+  static shouldRender() {
+    return true;
+  }
+
   get state() {
     return getCollectionsNavigatorState();
   }
 
-  get shouldRender() {
+  get shouldRenderBar() {
     return this.state?.ready;
   }
 
   get navText() {
-    if (!this.shouldRender) {
+    if (!this.shouldRenderBar) {
       return "";
     }
 
@@ -22,38 +26,44 @@ export default class CollectionsNavBar extends Component {
   }
 
   get isFirst() {
-    return !this.shouldRender || this.state.currentIndex <= 0;
+    return !this.shouldRenderBar || this.state.currentIndex <= 0;
   }
 
   get isLast() {
     return (
-      !this.shouldRender ||
+      !this.shouldRenderBar ||
       this.state.currentIndex >= this.state.totalItems - 1
     );
   }
 
   @action
   openModal() {
-    document.dispatchEvent(new CustomEvent("collections:navigator:open"));
+    document.dispatchEvent(
+      new CustomEvent("collections:navigator:open", { bubbles: true })
+    );
   }
 
   @action
   previousItem() {
-    document.dispatchEvent(new CustomEvent("collections:navigator:previous"));
+    document.dispatchEvent(
+      new CustomEvent("collections:navigator:previous", { bubbles: true })
+    );
   }
 
   @action
   nextItem() {
-    document.dispatchEvent(new CustomEvent("collections:navigator:next"));
+    document.dispatchEvent(
+      new CustomEvent("collections:navigator:next", { bubbles: true })
+    );
   }
 
   <template>
-    {{#if this.shouldRender}}
+    {{#if this.shouldRenderBar}}
       <div class="collections-item-nav-bar collections-nav-injected">
         <button
           class="btn btn--primary collections-nav-toggle"
           type="button"
-          title={{theme-i18n "collections_navigator.open"}}
+          title="Open collection navigator"
           {{on "click" this.openModal}}
         >
           <svg
@@ -73,7 +83,7 @@ export default class CollectionsNavBar extends Component {
           <button
             class="btn btn--secondary collections-nav-prev"
             type="button"
-            title={{theme-i18n "collections_navigator.previous"}}
+            title="Previous (arrow key)"
             disabled={{this.isFirst}}
             {{on "click" this.previousItem}}
           >
@@ -91,7 +101,7 @@ export default class CollectionsNavBar extends Component {
           <button
             class="btn btn--secondary collections-nav-next"
             type="button"
-            title={{theme-i18n "collections_navigator.next"}}
+            title="Next (arrow key)"
             disabled={{this.isLast}}
             {{on "click" this.nextItem}}
           >
