@@ -1,19 +1,44 @@
-let navigatorState = {
-  ready: false,
-  collectionName: "Collection",
-  collectionDesc: "",
-  currentItem: null,
-  currentIndex: -1,
-  totalItems: 0,
-  items: [],
-};
+import { tracked } from "@glimmer/tracking";
+
+class CollectionsNavigatorState {
+  @tracked ready = false;
+  @tracked collectionName = "Collection";
+  @tracked collectionDesc = "";
+  @tracked currentItem = null;
+  @tracked currentIndex = -1;
+  @tracked totalItems = 0;
+  @tracked items = [];
+}
+
+const navigatorState = new CollectionsNavigatorState();
 
 let eventsBound = false;
-let modalBound = false;
+let keyboardBound = false;
+let modalWired = false;
 
 const KEYBOARD_THROTTLE_MS = 150;
 const SCROLL_THROTTLE_MS = 50;
 const EXTERNAL_LINK_TITLE = "Click to Open in New Browser Window";
+
+function resetState() {
+  navigatorState.ready = false;
+  navigatorState.collectionName = "Collection";
+  navigatorState.collectionDesc = "";
+  navigatorState.currentItem = null;
+  navigatorState.currentIndex = -1;
+  navigatorState.totalItems = 0;
+  navigatorState.items = [];
+}
+
+function setStateFromData(data, currentIndex) {
+  navigatorState.ready = currentIndex > -1 && data.items.length > 1;
+  navigatorState.collectionName = data.collectionName;
+  navigatorState.collectionDesc = data.collectionDesc;
+  navigatorState.currentItem = currentIndex > -1 ? data.items[currentIndex] : null;
+  navigatorState.currentIndex = currentIndex;
+  navigatorState.totalItems = data.items.length;
+  navigatorState.items = [...data.items];
+}
 
 function escapeHtml(value) {
   if (value === null || value === undefined) {
@@ -111,20 +136,6 @@ function externalLinkButton(url, extraClass = "") {
   `;
 }
 
-function getPostContentNode() {
-  let content = document.querySelector(".topic-post[data-post-number='1'] .cooked");
-
-  if (!content) {
-    content = document.querySelector(".topic-body .cooked");
-  }
-
-  if (!content) {
-    return null;
-  }
-
-  return content.cloneNode(true);
-}
-
 function extractCollectionItems() {
   const sidebarPanel = document.querySelector(".discourse-collections-sidebar-panel");
 
@@ -195,29 +206,18 @@ function updateStateFromPage() {
   const data = extractCollectionItems();
 
   if (!data || data.items.length < 2) {
-    navigatorState = {
-      ready: false,
-      collectionName: "Collection",
-      collectionDesc: "",
-      currentItem: null,
-      currentIndex: -1,
-      totalItems: 0,
-      items: [],
-    };
+    resetState();
     return;
   }
 
   const currentIndex = getCurrentIndex(data.items);
 
-  navigatorState = {
-    ready: currentIndex > -1,
-    collectionName: data.collectionName,
-    collectionDesc: data.collectionDesc,
-    currentItem: currentIndex > -1 ? data.items[currentIndex] : null,
-    currentIndex,
-    totalItems: data.items.length,
-    items: data.items,
-  };
+  if (currentIndex === -1) {
+    resetState();
+    return;
+  }
+
+  setStateFromData(data, currentIndex);
 }
 
 function getModal() {
@@ -248,6 +248,20 @@ function scrollSliderToActive(modal) {
       inline: "center",
     });
   }
+}
+
+function getPostContentNode() {
+  let content = document.querySelector(".topic-post[data-post-number='1'] .cooked");
+
+  if (!content) {
+    content = document.querySelector(".topic-body .cooked");
+  }
+
+  if (!content) {
+    return null;
+  }
+
+  return content.cloneNode(true);
 }
 
 function enhanceCooked(api, element) {
@@ -373,7 +387,224 @@ function bindExternalLinkButtons(scope) {
   });
 }
 
-function updatePageContent(api, index) {
+function buildSliderItemHtml(item, idx) {
+  return `
+    <button
+      class="slider-item ${idx === navigatorState.currentIndex ? "active" : ""}"
+      data-index="${idx}"
+      title="${escapeHtml(item.title)}"
+      type="button"
+    >
+      <span class="slider-item-title">${escapeHtml(item.title)}</span>
+      ${item.external ? externalLinkButton(item.href, "in-slider") : ""}
+    </button>
+  `;
+}
+
+function buildSidebarItemHtml(item, idx) {
+  return `
+    <li class="collection-item ${idx === navigatorState.currentIndex ? "active" : ""}">
+      <div
+        class="collection-item-link ${item.external ? "external-link" : ""}"
+        data-index="${idx}"
+        title="${escapeHtml(item.title)}"
+        role="button"
+        tabindex="0"
+      >
+        <span class="item-number">${idx + 1}</span>
+        <span class="item-title">${escapeHtml(item.title)}</span>
+        ${idx === navigatorState.currentIndex ? '<span class="d-icon d-icon-check"></span>' : ""}
+        ${item.external ? externalLinkButton(item.href, "in-sidebar") : ""}
+      </div>
+    </li>
+  `;
+}
+
+function renderModalChrome(api) {
+  const modal = getModal();
+
+  if (!modal || !navigatorState.ready || !navigatorState.currentItem) {
+    return;
+  }
+
+  const cookedNode = getPostContentNode();
+  const cookedContent = cookedNode?.outerHTML || "<p>Loading content...</p>";
+
+  modal.innerHTML = `
+    <div class="collections-nav-modal collections-modal-with-content">
+      <div class="modal-header">
+        <button
+          class="modal-sidebar-toggle btn btn-flat btn--toggle no-text btn-icon narrow-desktop"
+          aria-label="Toggle sidebar"
+          type="button"
+          title="Toggle sidebar"
+        >
+          <svg class="fa d-icon d-icon-bars svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <use href="#bars"></use>
+          </svg>
+        </button>
+
+        <div class="modal-header-content">
+          <h2 class="modal-title">${escapeHtml(navigatorState.collectionName)}</h2>
+          ${
+            navigatorState.collectionDesc
+              ? `<p class="collection-description">${escapeHtml(
+                  navigatorState.collectionDesc
+                )}</p>`
+              : ""
+          }
+
+          <div class="topic-slider-container">
+            <div class="topic-slider">
+              ${navigatorState.items.map(buildSliderItemHtml).join("")}
+            </div>
+          </div>
+        </div>
+
+        <button class="modal-close-btn" aria-label="Close modal" type="button">
+          <svg class="fa d-icon d-icon-times svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <use href="#times"></use>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body-split">
+        <div class="modal-items-sidebar collapsed">
+          <ul class="collection-items-list">
+            ${navigatorState.items.map(buildSidebarItemHtml).join("")}
+          </ul>
+        </div>
+
+        <div class="modal-content-area">
+          <div class="content-header">
+            <h3 class="content-title">${escapeHtml(navigatorState.currentItem.title)}</h3>
+            <div class="content-header-actions"></div>
+          </div>
+
+          <div class="cooked-content">
+            ${cookedContent}
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-nav-footer">
+        <button
+          class="btn btn--secondary modal-content-prev"
+          title="Previous item"
+          type="button"
+          ${navigatorState.currentIndex === 0 ? "disabled" : ""}
+        >
+          <svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <use href="#arrow-left"></use>
+          </svg>
+          Previous
+        </button>
+
+        <div class="modal-paging">
+          <span class="paging-text">${navigatorState.currentIndex + 1}/${navigatorState.totalItems}</span>
+        </div>
+
+        <button
+          class="btn btn--secondary modal-content-next"
+          title="Next item"
+          type="button"
+          ${navigatorState.currentIndex === navigatorState.totalItems - 1 ? "disabled" : ""}
+        >
+          Next
+          <svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <use href="#arrow-right"></use>
+          </svg>
+        </button>
+      </div>
+    </div>
+  `;
+
+  const contentArea = modal.querySelector(".cooked-content");
+  if (cookedNode && contentArea) {
+    contentArea.innerHTML = "";
+    contentArea.appendChild(cookedNode);
+  } else {
+    enhanceCooked(api, contentArea);
+  }
+
+  modalWired = false;
+  wireModalHandlers(api, modal);
+  bindExternalLinkButtons(modal);
+}
+
+function wireModalHandlers(api, modal) {
+  if (!modal || modalWired) {
+    return;
+  }
+
+  modalWired = true;
+  let sidebarOpen = false;
+
+  const closeBtn = modal.querySelector(".modal-close-btn");
+  const sidebarToggle = modal.querySelector(".modal-sidebar-toggle");
+  const sidebar = modal.querySelector(".modal-items-sidebar");
+  const topicSliderContainer = modal.querySelector(".topic-slider-container");
+  const modalContentPrev = modal.querySelector(".modal-content-prev");
+  const modalContentNext = modal.querySelector(".modal-content-next");
+
+  closeBtn?.addEventListener("click", hideModal);
+
+  sidebarToggle?.addEventListener("click", () => {
+    sidebarOpen = !sidebarOpen;
+
+    if (sidebarOpen) {
+      sidebar?.classList.remove("collapsed");
+      topicSliderContainer?.classList.add("collapsed");
+    } else {
+      topicSliderContainer?.classList.remove("collapsed");
+      sidebar?.classList.add("collapsed");
+    }
+  });
+
+  modalContentPrev?.addEventListener("click", () => {
+    if (navigatorState.currentIndex > 0) {
+      updateModalContent(api, navigatorState.currentIndex - 1);
+    }
+  });
+
+  modalContentNext?.addEventListener("click", () => {
+    if (navigatorState.currentIndex < navigatorState.totalItems - 1) {
+      updateModalContent(api, navigatorState.currentIndex + 1);
+    }
+  });
+
+  modal.querySelectorAll(".collection-item-link").forEach((link) => {
+    link.style.cursor = "pointer";
+
+    link.addEventListener("click", () => {
+      const index = parseInt(link.getAttribute("data-index"), 10);
+      updateModalContent(api, index);
+    });
+
+    link.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        const index = parseInt(link.getAttribute("data-index"), 10);
+        updateModalContent(api, index);
+      }
+    });
+  });
+
+  modal.querySelectorAll(".slider-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      const index = parseInt(item.getAttribute("data-index"), 10);
+      updateModalContent(api, index);
+    });
+  });
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      hideModal();
+    }
+  });
+}
+
+function navigateToInternalItem(api, index) {
   if (index < 0 || index >= navigatorState.totalItems) {
     return;
   }
@@ -416,7 +647,9 @@ function updatePageContent(api, index) {
         history.pushState({}, "", item.href);
       }
 
-      updateStateFromPage();
+      navigatorState.currentIndex = index;
+      navigatorState.currentItem = item;
+
       refreshCollectionsNavigatorUI(api);
     })
     .catch((err) => console.error("Error updating content", err));
@@ -424,6 +657,7 @@ function updatePageContent(api, index) {
 
 const updateModalContent = throttle((api, index) => {
   const modal = getModal();
+
   if (!modal) {
     return;
   }
@@ -505,225 +739,7 @@ const updateModalContent = throttle((api, index) => {
   }
 
   bindExternalLinkButtons(modal);
-  refreshCollectionsNavigatorUI(api);
 }, SCROLL_THROTTLE_MS);
-
-function buildSliderItemHtml(item, idx) {
-  return `
-    <button
-      class="slider-item ${idx === navigatorState.currentIndex ? "active" : ""}"
-      data-index="${idx}"
-      title="${escapeHtml(item.title)}"
-      type="button"
-    >
-      <span class="slider-item-title">${escapeHtml(item.title)}</span>
-      ${item.external ? externalLinkButton(item.href, "in-slider") : ""}
-    </button>
-  `;
-}
-
-function buildSidebarItemHtml(item, idx) {
-  return `
-    <li class="collection-item ${idx === navigatorState.currentIndex ? "active" : ""}">
-      <div
-        class="collection-item-link ${item.external ? "external-link" : ""}"
-        data-index="${idx}"
-        title="${escapeHtml(item.title)}"
-        role="button"
-        tabindex="0"
-      >
-        <span class="item-number">${idx + 1}</span>
-        <span class="item-title">${escapeHtml(item.title)}</span>
-        ${idx === navigatorState.currentIndex ? '<span class="d-icon d-icon-check"></span>' : ""}
-        ${item.external ? externalLinkButton(item.href, "in-sidebar") : ""}
-      </div>
-    </li>
-  `;
-}
-
-function renderModalChrome(api) {
-  const modal = getModal();
-  if (!modal || !navigatorState.ready) {
-    return;
-  }
-
-  const currentItem = navigatorState.currentItem;
-  const cookedNode = getPostContentNode();
-  const cookedContent = cookedNode?.outerHTML || "<p>Loading content...</p>";
-
-  modal.innerHTML = `
-    <div class="collections-nav-modal collections-modal-with-content">
-      <div class="modal-header">
-        <button
-          class="modal-sidebar-toggle btn btn-flat btn--toggle no-text btn-icon narrow-desktop"
-          aria-label="Toggle sidebar"
-          type="button"
-          title="Toggle sidebar"
-        >
-          <svg class="fa d-icon d-icon-bars svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-            <use href="#bars"></use>
-          </svg>
-        </button>
-
-        <div class="modal-header-content">
-          <h2 class="modal-title">${escapeHtml(navigatorState.collectionName)}</h2>
-          ${
-            navigatorState.collectionDesc
-              ? `<p class="collection-description">${escapeHtml(
-                  navigatorState.collectionDesc
-                )}</p>`
-              : ""
-          }
-
-          <div class="topic-slider-container">
-            <div class="topic-slider">
-              ${navigatorState.items.map(buildSliderItemHtml).join("")}
-            </div>
-          </div>
-        </div>
-
-        <button class="modal-close-btn" aria-label="Close modal" type="button">
-          <svg class="fa d-icon d-icon-times svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-            <use href="#times"></use>
-          </svg>
-        </button>
-      </div>
-
-      <div class="modal-body-split">
-        <div class="modal-items-sidebar collapsed">
-          <ul class="collection-items-list">
-            ${navigatorState.items.map(buildSidebarItemHtml).join("")}
-          </ul>
-        </div>
-
-        <div class="modal-content-area">
-          <div class="content-header">
-            <h3 class="content-title">${escapeHtml(currentItem.title)}</h3>
-            <div class="content-header-actions"></div>
-          </div>
-
-          <div class="cooked-content">
-            ${cookedContent}
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-nav-footer">
-        <button
-          class="btn btn--secondary modal-content-prev"
-          title="Previous item"
-          type="button"
-          ${navigatorState.currentIndex === 0 ? "disabled" : ""}
-        >
-          <svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-            <use href="#arrow-left"></use>
-          </svg>
-          Previous
-        </button>
-
-        <div class="modal-paging">
-          <span class="paging-text">${navigatorState.currentIndex + 1}/${navigatorState.totalItems}</span>
-        </div>
-
-        <button
-          class="btn btn--secondary modal-content-next"
-          title="Next item"
-          type="button"
-          ${navigatorState.currentIndex === navigatorState.totalItems - 1 ? "disabled" : ""}
-        >
-          Next
-          <svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-            <use href="#arrow-right"></use>
-          </svg>
-        </button>
-      </div>
-    </div>
-  `;
-
-  const contentArea = modal.querySelector(".cooked-content");
-  if (cookedNode && contentArea) {
-    contentArea.innerHTML = "";
-    contentArea.appendChild(cookedNode);
-  } else {
-    enhanceCooked(api, contentArea);
-  }
-
-  wireModalHandlers(api, modal);
-  bindExternalLinkButtons(modal);
-}
-
-function wireModalHandlers(api, modal) {
-  if (!modal || modalBound) {
-    return;
-  }
-
-  modalBound = true;
-
-  let sidebarOpen = false;
-
-  const closeBtn = modal.querySelector(".modal-close-btn");
-  const sidebarToggle = modal.querySelector(".modal-sidebar-toggle");
-  const sidebar = modal.querySelector(".modal-items-sidebar");
-  const topicSliderContainer = modal.querySelector(".topic-slider-container");
-  const modalContentPrev = modal.querySelector(".modal-content-prev");
-  const modalContentNext = modal.querySelector(".modal-content-next");
-
-  closeBtn?.addEventListener("click", hideModal);
-
-  sidebarToggle?.addEventListener("click", () => {
-    sidebarOpen = !sidebarOpen;
-
-    if (sidebarOpen) {
-      sidebar?.classList.remove("collapsed");
-      topicSliderContainer?.classList.add("collapsed");
-    } else {
-      topicSliderContainer?.classList.remove("collapsed");
-      sidebar?.classList.add("collapsed");
-    }
-  });
-
-  modalContentPrev?.addEventListener("click", () => {
-    if (navigatorState.currentIndex > 0) {
-      updateModalContent(api, navigatorState.currentIndex - 1);
-    }
-  });
-
-  modalContentNext?.addEventListener("click", () => {
-    if (navigatorState.currentIndex < navigatorState.totalItems - 1) {
-      updateModalContent(api, navigatorState.currentIndex + 1);
-    }
-  });
-
-  modal.querySelectorAll(".collection-item-link").forEach((link) => {
-    link.style.cursor = "pointer";
-
-    link.addEventListener("click", () => {
-      const index = parseInt(link.getAttribute("data-index"), 10);
-      updateModalContent(api, index);
-    });
-
-    link.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        const index = parseInt(link.getAttribute("data-index"), 10);
-        updateModalContent(api, index);
-      }
-    });
-  });
-
-  modal.querySelectorAll(".slider-item").forEach((item) => {
-    item.addEventListener("click", () => {
-      const index = parseInt(item.getAttribute("data-index"), 10);
-      updateModalContent(api, index);
-    });
-  });
-
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) {
-      hideModal();
-    }
-  });
-}
 
 export function getCollectionsNavigatorState() {
   return navigatorState;
@@ -741,7 +757,6 @@ export function ensureCollectionsNavigatorModal(api) {
     modal.className = "collections-nav-modal-overlay";
     modal.style.display = "none";
     document.body.appendChild(modal);
-    modalBound = false;
   }
 
   if (!navigatorState.ready) {
@@ -765,7 +780,6 @@ export function refreshCollectionsNavigatorUI(api) {
 
   if (modal && modal.innerHTML.trim() !== "") {
     const isVisible = modal.style.display === "flex";
-    modalBound = false;
     renderModalChrome(api);
 
     if (isVisible) {
@@ -776,86 +790,88 @@ export function refreshCollectionsNavigatorUI(api) {
 }
 
 export function bindCollectionsNavigatorEvents(api) {
-  if (eventsBound) {
-    return;
+  if (!eventsBound) {
+    eventsBound = true;
+
+    document.addEventListener("collections:navigator:open", () => {
+      if (!navigatorState.ready) {
+        return;
+      }
+
+      ensureCollectionsNavigatorModal(api);
+      showModal();
+      updateModalContent(api, navigatorState.currentIndex);
+    });
+
+    document.addEventListener("collections:navigator:previous", () => {
+      if (!navigatorState.ready || navigatorState.currentIndex <= 0) {
+        return;
+      }
+
+      navigateToInternalItem(api, navigatorState.currentIndex - 1);
+    });
+
+    document.addEventListener("collections:navigator:next", () => {
+      if (
+        !navigatorState.ready ||
+        navigatorState.currentIndex >= navigatorState.totalItems - 1
+      ) {
+        return;
+      }
+
+      navigateToInternalItem(api, navigatorState.currentIndex + 1);
+    });
   }
 
-  eventsBound = true;
+  if (!keyboardBound) {
+    keyboardBound = true;
 
-  let lastKeyPress = 0;
+    let lastKeyPress = 0;
 
-  document.addEventListener("collections:navigator:open", () => {
-    if (!navigatorState.ready) {
-      return;
-    }
-
-    ensureCollectionsNavigatorModal(api);
-    showModal();
-    updateModalContent(api, navigatorState.currentIndex);
-  });
-
-  document.addEventListener("collections:navigator:previous", () => {
-    if (!navigatorState.ready || navigatorState.currentIndex <= 0) {
-      return;
-    }
-
-    updatePageContent(api, navigatorState.currentIndex - 1);
-  });
-
-  document.addEventListener("collections:navigator:next", () => {
-    if (
-      !navigatorState.ready ||
-      navigatorState.currentIndex >= navigatorState.totalItems - 1
-    ) {
-      return;
-    }
-
-    updatePageContent(api, navigatorState.currentIndex + 1);
-  });
-
-  document.addEventListener("keydown", (e) => {
-    if (!navigatorState.ready) {
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
-      return;
-    }
-
-    const modal = getModal();
-    const modalVisible = modal && modal.style.display === "flex";
-
-    if (modalVisible) {
-      if (e.key === "ArrowLeft" && navigatorState.currentIndex > 0) {
-        lastKeyPress = now;
-        e.preventDefault();
-        updateModalContent(api, navigatorState.currentIndex - 1);
-      } else if (
-        e.key === "ArrowRight" &&
-        navigatorState.currentIndex < navigatorState.totalItems - 1
-      ) {
-        lastKeyPress = now;
-        e.preventDefault();
-        updateModalContent(api, navigatorState.currentIndex + 1);
-      } else if (e.key === "Escape") {
-        lastKeyPress = now;
-        e.preventDefault();
-        hideModal();
+    document.addEventListener("keydown", (e) => {
+      if (!navigatorState.ready) {
+        return;
       }
-    } else {
-      if (e.key === "ArrowLeft" && navigatorState.currentIndex > 0) {
-        lastKeyPress = now;
-        e.preventDefault();
-        updatePageContent(api, navigatorState.currentIndex - 1);
-      } else if (
-        e.key === "ArrowRight" &&
-        navigatorState.currentIndex < navigatorState.totalItems - 1
-      ) {
-        lastKeyPress = now;
-        e.preventDefault();
-        updatePageContent(api, navigatorState.currentIndex + 1);
+
+      const now = Date.now();
+      if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
+        return;
       }
-    }
-  });
+
+      const modal = getModal();
+      const modalVisible = modal && modal.style.display === "flex";
+
+      if (modalVisible) {
+        if (e.key === "ArrowLeft" && navigatorState.currentIndex > 0) {
+          lastKeyPress = now;
+          e.preventDefault();
+          updateModalContent(api, navigatorState.currentIndex - 1);
+        } else if (
+          e.key === "ArrowRight" &&
+          navigatorState.currentIndex < navigatorState.totalItems - 1
+        ) {
+          lastKeyPress = now;
+          e.preventDefault();
+          updateModalContent(api, navigatorState.currentIndex + 1);
+        } else if (e.key === "Escape") {
+          lastKeyPress = now;
+          e.preventDefault();
+          hideModal();
+        }
+      } else {
+        if (e.key === "ArrowLeft" && navigatorState.currentIndex > 0) {
+          lastKeyPress = now;
+          e.preventDefault();
+          navigateToInternalItem(api, navigatorState.currentIndex - 1);
+        } else if (
+          e.key === "ArrowRight" &&
+          navigatorState.currentIndex < navigatorState.totalItems - 1
+        ) {
+          lastKeyPress = now;
+          e.preventDefault();
+          navigateToInternalItem(api, navigatorState.currentIndex + 1);
+        }
+      }
+    });
+  }
 }
