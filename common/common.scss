@@ -71,8 +71,10 @@
 }
 
 .collections-nav-modal {
-  width: min(1280px, 96vw);
-  max-height: 92vh;
+  width: (1280px, 96vw);
+  height: 92vh;
+  /* width: min(1280px, 96vw); */
+  /* max-height: 92vh; */
   display: flex;
   flex-direction: column;
   overflow: hidden;
