@@ -353,10 +353,10 @@ if (!topicArea || !topicArea.parentNode) {
 
 topicArea.parentNode.insertBefore(navBar, topicArea);
 
-      const modal = document.createElement("div");
-      modal.className = "collections-nav-modal-overlay";
-      modal.innerHTML =
-        '<div class="collections-nav-modal collections-modal-with-content">' +
+const modal = document.createElement("div");
+modal.className = "collections-nav-modal-overlay";
+modal.innerHTML =
+  '<div class="collections-nav-modal collections-modal-with-content">' +
 
 
 
