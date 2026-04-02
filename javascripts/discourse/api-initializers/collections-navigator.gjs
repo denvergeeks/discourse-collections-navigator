@@ -728,12 +728,10 @@ export default apiInitializer("1.24.0", (api) => {
       };
 
       const applyResponsiveState = () => {
-        const isMobile = mobileMq.matches;
-
-        if (isMobile) {
+        if (mobileMq.matches) {
+          sidebarOpen = false;
           sidebar?.classList.add("collapsed");
           modalPanel?.classList.remove("collections-sidebar-open");
-          sidebarOpen = false;
           topicSliderShell?.classList.remove("collapsed");
         } else {
           sidebar?.classList.toggle("collapsed", !sidebarOpen);
@@ -748,8 +746,22 @@ export default apiInitializer("1.24.0", (api) => {
       };
 
       const setSidebarVisibility = (open) => {
-        sidebarOpen = open;
-        applyResponsiveState();
+        if (mobileMq.matches) {
+          sidebarOpen = false;
+          sidebar?.classList.add("collapsed");
+          modalPanel?.classList.remove("collections-sidebar-open");
+          topicSliderShell?.classList.remove("collapsed");
+        } else {
+          sidebarOpen = open;
+          sidebar?.classList.toggle("collapsed", !open);
+          modalPanel?.classList.toggle("collections-sidebar-open", open);
+          topicSliderShell?.classList.toggle("collapsed", open);
+        }
+
+        window.requestAnimationFrame(() => {
+          syncSliderEdgeState();
+          scrollSliderToActive();
+        });
       };
 
       const showModal = () => {
@@ -959,10 +971,7 @@ export default apiInitializer("1.24.0", (api) => {
           `;
 
           if (mobileMq.matches) {
-            sidebar?.classList.add("collapsed");
-            modalPanel?.classList.remove("collections-sidebar-open");
-            sidebarOpen = false;
-            topicSliderShell?.classList.remove("collapsed");
+            setSidebarVisibility(false);
           }
 
           return;
@@ -996,28 +1005,11 @@ export default apiInitializer("1.24.0", (api) => {
         }
       }, SCROLL_THROTTLE_MS);
 
-      const onViewportChange = throttle(() => {
-        applyResponsiveState();
-      }, 50);
-
       applyResponsiveState();
 
-      if (typeof mobileMq.addEventListener === "function") {
-        mobileMq.addEventListener("change", onViewportChange);
-        addCleanup(() =>
-          mobileMq.removeEventListener("change", onViewportChange)
-        );
-      } else {
-        mobileMq.addListener(onViewportChange);
-        addCleanup(() => mobileMq.removeListener(onViewportChange));
-      }
-
       const onResize = throttle(() => {
-        if (!modalOverlay.classList.contains("is-visible")) {
-          return;
-        }
-
         syncSliderEdgeState();
+        scrollSliderToActive();
       }, 50);
 
       window.addEventListener("resize", onResize);
