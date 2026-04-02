@@ -420,42 +420,66 @@ export default apiInitializer("1.24.0", (api) => {
       modal.innerHTML = `
         <div class="collections-nav-modal collections-modal-with-content">
           <div class="modal-header">
-            <button class="modal-sidebar-toggle btn btn-flat btn--toggle no-text btn-icon narrow-desktop" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">
-              <svg class="fa d-icon d-icon-bars svg-icon svg-string" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                <use href="#bars"></use>
-              </svg>
-            </button>
-            <div class="modal-header-content">
-              <h2 class="modal-title">${collectionName}</h2>
-              ${
-                collectionDesc
-                  ? `<p class="collection-description">${collectionDesc}</p>`
-                  : ""
-              }
-              <div class="topic-slider-container">
-                <div class="topic-slider">
-                  ${items
-                    .map(
-                      (item, idx) => `
-                        <button class="slider-item ${
-                          idx === currentIndex ? "active" : ""
-                        }" data-index="${idx}" title="${item.title}">
-                          ${item.external ? externalLinkIcon : ""}
-                          <span class="slider-item-title">${item.title}</span>
-                          <span class="slider-item-count">${idx + 1}/${totalItems}</span>
-                        </button>
-                      `
-                    )
-                    .join("")}
+            <div class="modal-header-side modal-header-side-left">
+              <button class="modal-sidebar-toggle btn btn-flat btn--toggle no-text btn-icon narrow-desktop" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">
+                <svg class="fa d-icon d-icon-discourse-sidebar svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                  <use href="#discourse-sidebar"></use>
+                </svg>
+              </button>
+            </div>
+
+            <div class="modal-header-center">
+              <div class="modal-header-content">
+                <h2 class="modal-title">${collectionName}</h2>
+                ${
+                  collectionDesc
+                    ? `<p class="collection-description">${collectionDesc}</p>`
+                    : ""
+                }
+
+                <div class="topic-slider-shell">
+                  <button class="topic-slider-edge topic-slider-edge-prev" type="button" aria-label="Previous items">
+                    <svg class="fa d-icon d-icon-chevron-left svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                      <use href="#chevron-left"></use>
+                    </svg>
+                  </button>
+
+                  <div class="topic-slider-container">
+                    <div class="topic-slider">
+                      ${items
+                        .map(
+                          (item, idx) => `
+                            <button class="slider-item ${
+                              idx === currentIndex ? "active" : ""
+                            }" data-index="${idx}" title="${item.title}">
+                              ${item.external ? externalLinkIcon : ""}
+                              <span class="slider-item-title">${item.title}</span>
+                              <span class="slider-item-count">${idx + 1}/${totalItems}</span>
+                            </button>
+                          `
+                        )
+                        .join("")}
+                    </div>
+                  </div>
+
+                  <button class="topic-slider-edge topic-slider-edge-next" type="button" aria-label="Next items">
+                    <svg class="fa d-icon d-icon-chevron-right svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                      <use href="#chevron-right"></use>
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
-            <button class="modal-close-btn" aria-label="Close modal" type="button">
-              <svg class="fa d-icon d-icon-times svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                <use href="#times"></use>
-              </svg>
-            </button>
+
+            <div class="modal-header-side modal-header-side-right">
+              <button class="modal-close-btn" aria-label="Close modal" type="button">
+                <svg class="fa d-icon d-icon-xmark svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                  <use href="#xmark"></use>
+                </svg>
+              </button>
+            </div>
           </div>
+
           <div class="modal-body-split">
             <div class="modal-items-sidebar collapsed">
               <ul class="collection-items-list">
@@ -487,6 +511,7 @@ export default apiInitializer("1.24.0", (api) => {
                   .join("")}
               </ul>
             </div>
+
             <div class="modal-content-area">
               <div class="content-header">
                 <h3 class="content-title">${currentItem.title}</h3>
@@ -497,6 +522,7 @@ export default apiInitializer("1.24.0", (api) => {
               </div>
             </div>
           </div>
+
           <div class="modal-nav-footer">
             <button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ${
               currentIndex === 0 ? "disabled" : ""
@@ -553,14 +579,77 @@ export default apiInitializer("1.24.0", (api) => {
       const topicSliderContainer = modal.querySelector(
         ".topic-slider-container"
       );
+      const topicSliderShell = modal.querySelector(".topic-slider-shell");
+      const topicSlider = modal.querySelector(".topic-slider");
+      const topicSliderPrev = modal.querySelector(".topic-slider-edge-prev");
+      const topicSliderNext = modal.querySelector(".topic-slider-edge-next");
 
       let selectedIndex = currentIndex;
       let sidebarOpen = false;
 
+      const syncSliderEdgeState = () => {
+        if (!topicSliderContainer || !topicSlider) {
+          return;
+        }
+
+        const maxScrollLeft =
+          topicSliderContainer.scrollWidth - topicSliderContainer.clientWidth;
+        const isScrollable = maxScrollLeft > 4;
+
+        topicSliderShell?.classList.toggle("is-scrollable", isScrollable);
+        topicSliderShell?.classList.toggle(
+          "at-start",
+          !isScrollable || topicSliderContainer.scrollLeft <= 2
+        );
+        topicSliderShell?.classList.toggle(
+          "at-end",
+          !isScrollable ||
+            topicSliderContainer.scrollLeft >= maxScrollLeft - 2
+        );
+      };
+
+      const scrollSliderByPage = (direction) => {
+        if (!topicSliderContainer) {
+          return;
+        }
+
+        const amount = Math.max(180, Math.floor(topicSliderContainer.clientWidth * 0.7));
+        topicSliderContainer.scrollBy({
+          left: direction * amount,
+          behavior: getScrollBehavior(),
+        });
+      };
+
+      const setSidebarVisibility = (open) => {
+        sidebarOpen = open;
+
+        if (open) {
+          sidebar.classList.remove("collapsed");
+          modalPanel.classList.add("collections-sidebar-open");
+        } else {
+          sidebar.classList.add("collapsed");
+          modalPanel.classList.remove("collections-sidebar-open");
+        }
+
+        if (window.innerWidth <= 767) {
+          topicSliderShell?.classList.remove("collapsed");
+        } else {
+          topicSliderShell?.classList.toggle("collapsed", open);
+        }
+
+        window.requestAnimationFrame(() => {
+          syncSliderEdgeState();
+          scrollSliderToActive();
+        });
+      };
+
       const showModal = () => {
         modal.style.display = "flex";
+        setSidebarVisibility(window.innerWidth > 767 ? sidebarOpen : false);
+
         activeModalState = {
           modal,
+          totalItems,
           selectedIndexRef: () => selectedIndex,
           prev: () => {
             if (selectedIndex > 0) {
@@ -576,6 +665,11 @@ export default apiInitializer("1.24.0", (api) => {
             modal.style.display = "none";
           },
         };
+
+        window.requestAnimationFrame(() => {
+          syncSliderEdgeState();
+          scrollSliderToActive();
+        });
       };
 
       const hideModal = () => {
@@ -586,22 +680,17 @@ export default apiInitializer("1.24.0", (api) => {
       };
 
       const toggleSidebar = () => {
-        sidebarOpen = !sidebarOpen;
-
-        if (sidebarOpen) {
-          sidebar.classList.remove("collapsed");
-          topicSliderContainer.classList.add("collapsed");
-          modalPanel.classList.add("collections-sidebar-open");
-        } else {
-          topicSliderContainer.classList.remove("collapsed");
-          sidebar.classList.add("collapsed");
-          modalPanel.classList.remove("collections-sidebar-open");
+        if (window.innerWidth <= 767) {
+          setSidebarVisibility(!sidebarOpen);
+          return;
         }
+
+        setSidebarVisibility(!sidebarOpen);
       };
 
       const scrollSliderToActive = () => {
         const activeSlider = modal.querySelector(".slider-item.active");
-        if (activeSlider) {
+        if (activeSlider && !topicSliderShell?.classList.contains("collapsed")) {
           activeSlider.scrollIntoView({
             behavior: getScrollBehavior(),
             block: "nearest",
@@ -758,7 +847,10 @@ export default apiInitializer("1.24.0", (api) => {
           link.classList.toggle("active", idx === index)
         );
 
-        setTimeout(scrollSliderToActive, 100);
+        window.requestAnimationFrame(() => {
+          scrollSliderToActive();
+          syncSliderEdgeState();
+        });
 
         if (items[index].external) {
           modal.classList.add("external-url-active");
@@ -800,6 +892,20 @@ export default apiInitializer("1.24.0", (api) => {
       toggleBtn.addEventListener("click", showModal);
       sidebarToggle.addEventListener("click", toggleSidebar);
       closeBtn.addEventListener("click", hideModal);
+      topicSliderPrev?.addEventListener("click", () => scrollSliderByPage(-1));
+      topicSliderNext?.addEventListener("click", () => scrollSliderByPage(1));
+      topicSliderContainer?.addEventListener("scroll", throttle(syncSliderEdgeState, 30));
+      window.addEventListener("resize", throttle(() => {
+        if (modal.style.display === "flex") {
+          if (window.innerWidth <= 767) {
+            sidebar.classList.add("collapsed");
+            modalPanel.classList.remove("collections-sidebar-open");
+            sidebarOpen = false;
+            topicSliderShell?.classList.remove("collapsed");
+          }
+          syncSliderEdgeState();
+        }
+      }, 50));
 
       prevBtn.addEventListener("click", () => {
         if (selectedIndex > 0) {
@@ -856,22 +962,31 @@ export default apiInitializer("1.24.0", (api) => {
 
           const now = Date.now();
           const selected = activeModalState.selectedIndexRef();
+          const maxIndex = activeModalState.totalItems - 1;
 
           if (e.key === "ArrowLeft" && selected > 0) {
             if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
               return;
             }
-            if (document.activeElement?.classList?.contains("collections-sidebar-resizer")) {
+            if (
+              document.activeElement?.classList?.contains(
+                "collections-sidebar-resizer"
+              )
+            ) {
               return;
             }
             lastKeyPress = now;
             e.preventDefault();
             activeModalState.prev();
-          } else if (e.key === "ArrowRight" && selected < totalItems - 1) {
+          } else if (e.key === "ArrowRight" && selected < maxIndex) {
             if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
               return;
             }
-            if (document.activeElement?.classList?.contains("collections-sidebar-resizer")) {
+            if (
+              document.activeElement?.classList?.contains(
+                "collections-sidebar-resizer"
+              )
+            ) {
               return;
             }
             lastKeyPress = now;
