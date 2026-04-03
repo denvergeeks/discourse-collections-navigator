@@ -217,6 +217,7 @@ export default apiInitializer("1.24.0", (api) => {
     }
     activeModalState = null;
     launcherState.reset();
+    document.body.classList.remove("collections-launcher-expanded");
   }
 
   function ensureSidebarResizer(modal) {
