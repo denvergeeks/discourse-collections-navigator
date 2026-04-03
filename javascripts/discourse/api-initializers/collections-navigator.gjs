@@ -508,6 +508,12 @@ export default apiInitializer("1.24.0", (api) => {
     let modalRequestId = 0;
     let pageRequestId = 0;
 
+    launcherState.setExpanded(!!settings.slider_starts_expanded);
+    document.body.classList.toggle(
+      "collections-launcher-expanded",
+      launcherState.isExpanded
+    );
+
     const syncLauncherState = () => {
       const current = items[selectedIndex];
       const previous = selectedIndex > 0 ? items[selectedIndex - 1] : null;
