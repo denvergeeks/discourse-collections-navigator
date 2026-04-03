@@ -12,6 +12,13 @@ export default apiInitializer("1.24.0", (api) => {
   const KEYBOARD_THROTTLE_MS = 150;
   const SCROLL_THROTTLE_MS = 50;
 
+  const debug = (...args) => {
+    if (settings.collections_navigator_debug) {
+      // eslint-disable-next-line no-console
+      console.debug("[collections-navigator]", ...args);
+    }
+  };
+
   const externalLinkIcon = `
     <svg
       class="fa d-icon svg-icon svg-string"
@@ -458,12 +465,19 @@ export default apiInitializer("1.24.0", (api) => {
   }
 
   function buildNavigator(currentPath) {
+    if (!settings.collections_navigator_enabled) {
+      debug("navigator disabled by setting");
+      cleanupExistingUi();
+      return;
+    }
+
     const sidebarPanel = document.querySelector(
       ".discourse-collections-sidebar-panel"
     );
     const insertAnchor = getTopicInsertAnchor();
 
     if (!sidebarPanel || !insertAnchor || !insertAnchor.parentNode) {
+      debug("sidebar or insert anchor missing");
       cleanupExistingUi();
       return;
     }
@@ -472,6 +486,7 @@ export default apiInitializer("1.24.0", (api) => {
     const items = buildItems(links);
 
     if (items.length < 2) {
+      debug("not enough items to render navigator");
       cleanupExistingUi();
       return;
     }
@@ -491,6 +506,7 @@ export default apiInitializer("1.24.0", (api) => {
     });
 
     if (currentIndex === -1) {
+      debug("current topic not found in collection", currentPath);
       cleanupExistingUi();
       return;
     }
@@ -499,6 +515,7 @@ export default apiInitializer("1.24.0", (api) => {
     const existingModal = document.querySelector(".collections-nav-modal-overlay");
 
     if (existingNav && existingModal) {
+      debug("navigator already present");
       return;
     }
 
@@ -1019,8 +1036,7 @@ export default apiInitializer("1.24.0", (api) => {
           enhanceCooked(contentArea);
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Error updating page content", error);
+        debug("error updating page content", error);
       }
     };
 
@@ -1080,11 +1096,12 @@ export default apiInitializer("1.24.0", (api) => {
         const cooked = data.post_stream?.posts?.[0]?.cooked;
         contentArea.innerHTML = cooked || "<p>No content</p>";
         enhanceCooked(contentArea);
-      } catch {
+      } catch (error) {
         if (requestId !== modalRequestId) {
           return;
         }
 
+        debug("error updating modal content", error);
         contentArea.innerHTML = "<p>Error loading</p>";
       }
     }, SCROLL_THROTTLE_MS);
@@ -1282,6 +1299,12 @@ export default apiInitializer("1.24.0", (api) => {
 
     syncLauncherState();
     syncSliderEdgeState();
+    debug("navigator built", {
+      collectionName,
+      currentIndex,
+      totalItems,
+      currentPath,
+    });
   }
 
   function scheduleRebuild(currentPath) {
@@ -1302,6 +1325,10 @@ export default apiInitializer("1.24.0", (api) => {
       sidebarObserver.disconnect();
     }
 
+    if (!settings.collections_navigator_enabled) {
+      return;
+    }
+
     sidebarObserver = new MutationObserver(() => {
       scheduleRebuild(getCurrentPath());
     });
@@ -1318,6 +1345,12 @@ export default apiInitializer("1.24.0", (api) => {
     const getCurrentPath = () => normalizePath(url || window.location.pathname);
 
     cleanupExistingUi();
+
+    if (!settings.collections_navigator_enabled) {
+      debug("skipping page build because navigator is disabled");
+      return;
+    }
+
     scheduleRebuild(getCurrentPath());
     setupSidebarObserver(getCurrentPath);
   });
