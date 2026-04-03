@@ -1,4 +1,5 @@
 import { apiInitializer } from "discourse/lib/api";
+import launcherState from "../lib/collections-launcher-state";
 
 export default apiInitializer("1.24.0", (api) => {
   let keyboardHandlerBound = false;
@@ -215,6 +216,7 @@ export default apiInitializer("1.24.0", (api) => {
       activeModalState.hide();
     }
     activeModalState = null;
+    launcherState.reset();
   }
 
   function ensureSidebarResizer(modal) {
@@ -504,6 +506,35 @@ export default apiInitializer("1.24.0", (api) => {
     let sidebarOpen = false;
     let modalRequestId = 0;
     let pageRequestId = 0;
+
+    const syncLauncherState = () => {
+      const current = items[selectedIndex];
+      const previous = selectedIndex > 0 ? items[selectedIndex - 1] : null;
+      const next =
+        selectedIndex < totalItems - 1 ? items[selectedIndex + 1] : null;
+
+      launcherState.update({
+        collectionName,
+        currentTitle: current?.title,
+        previousTitle: previous?.title,
+        nextTitle: next?.title,
+        currentIndex: selectedIndex,
+        totalItems,
+        canGoPrev: selectedIndex > 0,
+        canGoNext: selectedIndex < totalItems - 1,
+        openModal: showModal,
+        goPrev: () => {
+          if (selectedIndex > 0) {
+            updatePageContent(selectedIndex - 1);
+          }
+        },
+        goNext: () => {
+          if (selectedIndex < totalItems - 1) {
+            updatePageContent(selectedIndex + 1);
+          }
+        },
+      });
+    };
 
     const cleanupFns = [];
     const addCleanup = (fn) => cleanupFns.push(fn);
@@ -912,6 +943,7 @@ export default apiInitializer("1.24.0", (api) => {
 
       selectedIndex = index;
       updateNavState(index);
+      syncLauncherState();
 
       const requestId = ++pageRequestId;
 
@@ -1185,6 +1217,7 @@ export default apiInitializer("1.24.0", (api) => {
       keyboardHandlerBound = true;
     }
 
+    syncLauncherState();
     syncSliderEdgeState();
   }
 
