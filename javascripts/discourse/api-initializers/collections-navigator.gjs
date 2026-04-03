@@ -5,6 +5,8 @@ export default apiInitializer("1.24.0", (api) => {
   let resizerBound = false;
   let activeModalState = null;
   let currentCleanup = null;
+  let sidebarObserver = null;
+  let rebuildScheduled = false;
 
   const KEYBOARD_THROTTLE_MS = 150;
   const SCROLL_THROTTLE_MS = 50;
@@ -196,24 +198,6 @@ export default apiInitializer("1.24.0", (api) => {
     }
 
     api.applyDecoratorsToElement?.(element);
-  }
-
-  function waitForCollectionsDom(callback, attempts = 30) {
-    if (attempts <= 0) {
-      return;
-    }
-
-    const sidebarPanel = document.querySelector(
-      ".discourse-collections-sidebar-panel"
-    );
-    const insertAnchor = getTopicInsertAnchor();
-
-    if (sidebarPanel && insertAnchor) {
-      callback(sidebarPanel, insertAnchor);
-      return;
-    }
-
-    setTimeout(() => waitForCollectionsDom(callback, attempts - 1), 200);
   }
 
   function cleanupExistingUi() {
@@ -466,729 +450,783 @@ export default apiInitializer("1.24.0", (api) => {
     `;
   }
 
-  api.decorateCookedElement(() => {}, {
-    id: "collections-navigator-modal",
-  });
+  function buildNavigator(currentPath) {
+    const sidebarPanel = document.querySelector(
+      ".discourse-collections-sidebar-panel"
+    );
+    const insertAnchor = getTopicInsertAnchor();
 
-  api.onPageChange((url) => {
-    const currentPath = normalizePath(url);
+    if (!sidebarPanel || !insertAnchor || !insertAnchor.parentNode) {
+      cleanupExistingUi();
+      return;
+    }
+
+    const links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
+    const items = buildItems(links);
+
+    if (items.length < 2) {
+      cleanupExistingUi();
+      return;
+    }
+
+    const collectionTitleEl = document.querySelector(".collection-sidebar__title");
+    const collectionDescEl = document.querySelector(".collection-sidebar__desc");
+    const collectionName =
+      collectionTitleEl?.textContent?.trim() || "Collection";
+    const collectionDesc = collectionDescEl?.textContent?.trim() || "";
+
+    const currentIndex = items.findIndex((item) => {
+      if (item.external || !item.slug) {
+        return false;
+      }
+      return currentPath.includes(item.slug);
+    });
+
+    if (currentIndex === -1) {
+      cleanupExistingUi();
+      return;
+    }
+
+    const existingNav = document.querySelector(".collections-item-nav-bar");
+    const existingModal = document.querySelector(".collections-nav-modal-overlay");
+
+    if (existingNav && existingModal) {
+      return;
+    }
 
     cleanupExistingUi();
 
-    waitForCollectionsDom((sidebarPanel, insertAnchor) => {
-      const links = sidebarPanel.querySelectorAll(".collection-sidebar-link");
-      const items = buildItems(links);
+    const currentItem = items[currentIndex];
+    const totalItems = items.length;
+    const cookedNode = getPostContentNode();
 
-      if (items.length < 2) {
-        return;
-      }
+    let selectedIndex = currentIndex;
+    let sidebarOpen = false;
+    let modalRequestId = 0;
+    let pageRequestId = 0;
 
-      const collectionTitleEl = document.querySelector(".collection-sidebar__title");
-      const collectionDescEl = document.querySelector(".collection-sidebar__desc");
-      const collectionName =
-        collectionTitleEl?.textContent?.trim() || "Collection";
-      const collectionDesc = collectionDescEl?.textContent?.trim() || "";
+    const cleanupFns = [];
+    const addCleanup = (fn) => cleanupFns.push(fn);
 
-      const currentIndex = items.findIndex((item) => {
-        if (item.external || !item.slug) {
-          return false;
-        }
-        return currentPath.includes(item.slug);
-      });
-
-      if (currentIndex === -1) {
-        return;
-      }
-
-      const currentItem = items[currentIndex];
-      const totalItems = items.length;
-      const cookedNode = getPostContentNode();
-
-      let selectedIndex = currentIndex;
-      let sidebarOpen = false;
-      let modalRequestId = 0;
-      let pageRequestId = 0;
-
-      const cleanupFns = [];
-      const addCleanup = (fn) => cleanupFns.push(fn);
-
-      const navBar = document.createElement("div");
-      navBar.className = "collections-item-nav-bar collections-nav-injected";
-      navBar.innerHTML = `
-        <button class="btn btn--primary collections-nav-toggle" title="Open collection navigator" type="button">
-          <svg class="fa d-icon d-icon-collection-pip svg-icon fa-width-auto prefix-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-            <use href="#collection-pip"></use>
+    const navBar = document.createElement("div");
+    navBar.className = "collections-item-nav-bar collections-nav-injected";
+    navBar.innerHTML = `
+      <button class="btn btn--primary collections-nav-toggle" title="Open collection navigator" type="button">
+        <svg class="fa d-icon d-icon-collection-pip svg-icon fa-width-auto prefix-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+          <use href="#collection-pip"></use>
+        </svg>
+        <span class="nav-text">${escapeHtml(
+          renderNavText(collectionName, currentItem, currentIndex, totalItems)
+        )}</span>
+      </button>
+      <div class="collections-quick-nav">
+        <button class="btn btn--secondary collections-nav-prev" ${
+          currentIndex === 0 ? "disabled" : ""
+        } title="Previous (arrow key)" type="button">
+          <svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <use href="#arrow-left"></use>
           </svg>
-          <span class="nav-text">${escapeHtml(
-            renderNavText(collectionName, currentItem, currentIndex, totalItems)
-          )}</span>
         </button>
-        <div class="collections-quick-nav">
-          <button class="btn btn--secondary collections-nav-prev" ${
+        <button class="btn btn--secondary collections-nav-next" ${
+          currentIndex === totalItems - 1 ? "disabled" : ""
+        } title="Next (arrow key)" type="button">
+          <svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <use href="#arrow-right"></use>
+          </svg>
+        </button>
+      </div>
+    `;
+    insertAnchor.parentNode.insertBefore(navBar, insertAnchor);
+
+    const modalOverlay = document.createElement("div");
+    modalOverlay.className = "collections-nav-modal-overlay";
+    modalOverlay.innerHTML = `
+      <div class="collections-nav-modal collections-modal-with-content" role="dialog" aria-modal="true" aria-label="${escapeHtml(collectionName)} navigator">
+        <div class="modal-header">
+          <div class="modal-header-side modal-header-side-left">
+            <button class="modal-sidebar-toggle btn btn-flat btn--toggle no-text btn-icon narrow-desktop" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">
+              <svg class="fa d-icon d-icon-discourse-sidebar svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <use href="#discourse-sidebar"></use>
+              </svg>
+            </button>
+          </div>
+
+          <div class="modal-header-center">
+            <div class="modal-header-content">
+              <h2 class="modal-title">${escapeHtml(collectionName)}</h2>
+              ${
+                collectionDesc
+                  ? `<p class="collection-description">${escapeHtml(collectionDesc)}</p>`
+                  : ""
+              }
+
+              <div class="topic-slider-shell">
+                <button class="topic-slider-edge topic-slider-edge-prev" type="button" aria-label="Previous items">
+                  <svg class="fa d-icon d-icon-chevron-left svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                    <use href="#chevron-left"></use>
+                  </svg>
+                </button>
+
+                <div class="topic-slider-container">
+                  <div class="topic-slider">
+                    ${items
+                      .map((item, idx) =>
+                        renderSliderItem(item, idx, currentIndex, totalItems)
+                      )
+                      .join("")}
+                  </div>
+                </div>
+
+                <button class="topic-slider-edge topic-slider-edge-next" type="button" aria-label="Next items">
+                  <svg class="fa d-icon d-icon-chevron-right svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                    <use href="#chevron-right"></use>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-header-side modal-header-side-right">
+            <button class="modal-close-btn" aria-label="Close modal" type="button">
+              <svg class="fa d-icon d-icon-xmark svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <use href="#xmark"></use>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-body-split">
+          <div class="modal-items-sidebar collapsed">
+            <ul class="collection-items-list">
+              ${items
+                .map((item, idx) => renderCollectionItem(item, idx, currentIndex))
+                .join("")}
+            </ul>
+          </div>
+
+          <div class="modal-content-area">
+            <div class="content-header">
+              <h3 class="content-title">${escapeHtml(currentItem.title)}</h3>
+              <div class="content-header-actions"></div>
+            </div>
+            <div class="cooked-content"></div>
+          </div>
+        </div>
+
+        <div class="modal-nav-footer">
+          <button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ${
             currentIndex === 0 ? "disabled" : ""
-          } title="Previous (arrow key)" type="button">
+          }>
             <svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
               <use href="#arrow-left"></use>
             </svg>
+            Previous
           </button>
-          <button class="btn btn--secondary collections-nav-next" ${
+          <div class="modal-paging">
+            <span class="paging-text">${currentIndex + 1}/${totalItems}</span>
+          </div>
+          <button class="btn btn--secondary modal-content-next" title="Next item" type="button" ${
             currentIndex === totalItems - 1 ? "disabled" : ""
-          } title="Next (arrow key)" type="button">
+          }>
+            Next
             <svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
               <use href="#arrow-right"></use>
             </svg>
           </button>
         </div>
-      `;
+      </div>
+    `;
+    document.body.appendChild(modalOverlay);
 
-      if (insertAnchor.parentNode) {
-        insertAnchor.parentNode.insertBefore(navBar, insertAnchor);
-      } else {
+    const modalPanel = modalOverlay.querySelector(".collections-nav-modal");
+    ensureSidebarResizer(modalPanel);
+    bindSidebarResizer();
+
+    const contentArea = modalOverlay.querySelector(".cooked-content");
+    if (cookedNode && contentArea) {
+      contentArea.replaceChildren(cookedNode);
+      enhanceCooked(contentArea);
+    } else if (contentArea) {
+      contentArea.innerHTML = "<p>Loading content...</p>";
+    }
+
+    const toggleBtn = navBar.querySelector(".collections-nav-toggle");
+    const prevBtn = navBar.querySelector(".collections-nav-prev");
+    const nextBtn = navBar.querySelector(".collections-nav-next");
+    const closeBtn = modalOverlay.querySelector(".modal-close-btn");
+    const contentTitle = modalOverlay.querySelector(".content-title");
+    const contentHeaderActions = modalOverlay.querySelector(
+      ".content-header-actions"
+    );
+    const sidebarToggle = modalOverlay.querySelector(".modal-sidebar-toggle");
+    const sidebar = modalOverlay.querySelector(".modal-items-sidebar");
+    const collectionList = modalOverlay.querySelector(".collection-items-list");
+    const modalContentPrev = modalOverlay.querySelector(".modal-content-prev");
+    const modalContentNext = modalOverlay.querySelector(".modal-content-next");
+    const pagingText = modalOverlay.querySelector(".paging-text");
+    const topicSliderContainer = modalOverlay.querySelector(
+      ".topic-slider-container"
+    );
+    const topicSliderShell = modalOverlay.querySelector(".topic-slider-shell");
+    const topicSlider = modalOverlay.querySelector(".topic-slider");
+    const mobileMq = window.matchMedia("(max-width: 767px)");
+
+    function rerenderSidebarList(activeIndex) {
+      if (!collectionList) {
         return;
       }
 
-      const modalOverlay = document.createElement("div");
-      modalOverlay.className = "collections-nav-modal-overlay";
-      modalOverlay.innerHTML = `
-        <div class="collections-nav-modal collections-modal-with-content" role="dialog" aria-modal="true" aria-label="${escapeHtml(collectionName)} navigator">
-          <div class="modal-header">
-            <div class="modal-header-side modal-header-side-left">
-              <button class="modal-sidebar-toggle btn btn-flat btn--toggle no-text btn-icon narrow-desktop" aria-label="Toggle sidebar" type="button" title="Toggle sidebar">
-                <svg class="fa d-icon d-icon-discourse-sidebar svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                  <use href="#discourse-sidebar"></use>
-                </svg>
-              </button>
-            </div>
+      collectionList.innerHTML = items
+        .map((item, idx) => renderCollectionItem(item, idx, activeIndex))
+        .join("");
+    }
 
-            <div class="modal-header-center">
-              <div class="modal-header-content">
-                <h2 class="modal-title">${escapeHtml(collectionName)}</h2>
-                ${
-                  collectionDesc
-                    ? `<p class="collection-description">${escapeHtml(collectionDesc)}</p>`
-                    : ""
-                }
-
-                <div class="topic-slider-shell">
-                  <button class="topic-slider-edge topic-slider-edge-prev" type="button" aria-label="Previous items">
-                    <svg class="fa d-icon d-icon-chevron-left svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                      <use href="#chevron-left"></use>
-                    </svg>
-                  </button>
-
-                  <div class="topic-slider-container">
-                    <div class="topic-slider">
-                      ${items
-                        .map((item, idx) =>
-                          renderSliderItem(item, idx, currentIndex, totalItems)
-                        )
-                        .join("")}
-                    </div>
-                  </div>
-
-                  <button class="topic-slider-edge topic-slider-edge-next" type="button" aria-label="Next items">
-                    <svg class="fa d-icon d-icon-chevron-right svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                      <use href="#chevron-right"></use>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="modal-header-side modal-header-side-right">
-              <button class="modal-close-btn" aria-label="Close modal" type="button">
-                <svg class="fa d-icon d-icon-xmark svg-icon svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                  <use href="#xmark"></use>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div class="modal-body-split">
-            <div class="modal-items-sidebar collapsed">
-              <ul class="collection-items-list">
-                ${items
-                  .map((item, idx) => renderCollectionItem(item, idx, currentIndex))
-                  .join("")}
-              </ul>
-            </div>
-
-            <div class="modal-content-area">
-              <div class="content-header">
-                <h3 class="content-title">${escapeHtml(currentItem.title)}</h3>
-                <div class="content-header-actions"></div>
-              </div>
-              <div class="cooked-content"></div>
-            </div>
-          </div>
-
-          <div class="modal-nav-footer">
-            <button class="btn btn--secondary modal-content-prev" title="Previous item" type="button" ${
-              currentIndex === 0 ? "disabled" : ""
-            }>
-              <svg class="fa d-icon d-icon-arrow-left svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                <use href="#arrow-left"></use>
-              </svg>
-              Previous
-            </button>
-            <div class="modal-paging">
-              <span class="paging-text">${currentIndex + 1}/${totalItems}</span>
-            </div>
-            <button class="btn btn--secondary modal-content-next" title="Next item" type="button" ${
-              currentIndex === totalItems - 1 ? "disabled" : ""
-            }>
-              Next
-              <svg class="fa d-icon d-icon-arrow-right svg-icon fa-width-auto svg-string" width="1em" height="1em" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                <use href="#arrow-right"></use>
-              </svg>
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modalOverlay);
-
-      const modalPanel = modalOverlay.querySelector(".collections-nav-modal");
-      ensureSidebarResizer(modalPanel);
-      bindSidebarResizer();
-
-      const contentArea = modalOverlay.querySelector(".cooked-content");
-      if (cookedNode && contentArea) {
-        contentArea.replaceChildren(cookedNode);
-        enhanceCooked(contentArea);
-      } else if (contentArea) {
-        contentArea.innerHTML = "<p>Loading content...</p>";
+    function rerenderSlider(activeIndex) {
+      if (!topicSlider) {
+        return;
       }
 
-      const toggleBtn = navBar.querySelector(".collections-nav-toggle");
-      const prevBtn = navBar.querySelector(".collections-nav-prev");
-      const nextBtn = navBar.querySelector(".collections-nav-next");
-      const closeBtn = modalOverlay.querySelector(".modal-close-btn");
-      const contentTitle = modalOverlay.querySelector(".content-title");
-      const contentHeaderActions = modalOverlay.querySelector(".content-header-actions");
-      const sidebarToggle = modalOverlay.querySelector(".modal-sidebar-toggle");
-      const sidebar = modalOverlay.querySelector(".modal-items-sidebar");
-      const collectionList = modalOverlay.querySelector(".collection-items-list");
-      const modalContentPrev = modalOverlay.querySelector(".modal-content-prev");
-      const modalContentNext = modalOverlay.querySelector(".modal-content-next");
-      const pagingText = modalOverlay.querySelector(".paging-text");
-      const topicSliderContainer = modalOverlay.querySelector(".topic-slider-container");
-      const topicSliderShell = modalOverlay.querySelector(".topic-slider-shell");
-      const topicSlider = modalOverlay.querySelector(".topic-slider");
-      const mobileMq = window.matchMedia("(max-width: 767px)");
+      topicSlider.innerHTML = items
+        .map((item, idx) =>
+          renderSliderItem(item, idx, activeIndex, totalItems)
+        )
+        .join("");
+    }
 
-      function rerenderSidebarList(activeIndex) {
-        if (!collectionList) {
-          return;
-        }
-
-        collectionList.innerHTML = items
-          .map((item, idx) => renderCollectionItem(item, idx, activeIndex))
-          .join("");
+    const syncSliderEdgeState = () => {
+      if (!topicSliderContainer || !topicSliderShell) {
+        return;
       }
 
-      function rerenderSlider(activeIndex) {
-        if (!topicSlider) {
-          return;
-        }
+      const maxScrollLeft =
+        topicSliderContainer.scrollWidth - topicSliderContainer.clientWidth;
+      const isScrollable = maxScrollLeft > 4;
 
-        topicSlider.innerHTML = items
-          .map((item, idx) => renderSliderItem(item, idx, activeIndex, totalItems))
-          .join("");
+      topicSliderShell.classList.toggle("is-scrollable", isScrollable);
+      topicSliderShell.classList.toggle(
+        "at-start",
+        !isScrollable || topicSliderContainer.scrollLeft <= 2
+      );
+      topicSliderShell.classList.toggle(
+        "at-end",
+        !isScrollable || topicSliderContainer.scrollLeft >= maxScrollLeft - 2
+      );
+    };
+
+    const scrollSliderByPage = (direction) => {
+      if (!topicSliderContainer) {
+        return;
       }
 
-      const syncSliderEdgeState = () => {
-        if (!topicSliderContainer || !topicSliderShell) {
-          return;
-        }
+      const amount = Math.max(
+        180,
+        Math.floor(topicSliderContainer.clientWidth * 0.7)
+      );
 
-        const maxScrollLeft =
-          topicSliderContainer.scrollWidth - topicSliderContainer.clientWidth;
-        const isScrollable = maxScrollLeft > 4;
+      topicSliderContainer.scrollBy({
+        left: direction * amount,
+        behavior: getScrollBehavior(),
+      });
+    };
 
-        topicSliderShell.classList.toggle("is-scrollable", isScrollable);
-        topicSliderShell.classList.toggle(
-          "at-start",
-          !isScrollable || topicSliderContainer.scrollLeft <= 2
-        );
-        topicSliderShell.classList.toggle(
-          "at-end",
-          !isScrollable || topicSliderContainer.scrollLeft >= maxScrollLeft - 2
-        );
-      };
-
-      const scrollSliderByPage = (direction) => {
-        if (!topicSliderContainer) {
-          return;
-        }
-
-        const amount = Math.max(
-          180,
-          Math.floor(topicSliderContainer.clientWidth * 0.7)
-        );
-
-        topicSliderContainer.scrollBy({
-          left: direction * amount,
+    const scrollSliderToActive = () => {
+      const activeSlider = modalOverlay.querySelector(".slider-item.active");
+      if (activeSlider && !topicSliderShell?.classList.contains("collapsed")) {
+        activeSlider.scrollIntoView({
           behavior: getScrollBehavior(),
+          block: "nearest",
+          inline: "center",
         });
-      };
+      }
+    };
 
-      const scrollSliderToActive = () => {
-        const activeSlider = modalOverlay.querySelector(".slider-item.active");
-        if (activeSlider && !topicSliderShell?.classList.contains("collapsed")) {
-          activeSlider.scrollIntoView({
-            behavior: getScrollBehavior(),
-            block: "nearest",
-            inline: "center",
-          });
-        }
-      };
+    const applyResponsiveState = () => {
+      if (mobileMq.matches) {
+        sidebarOpen = false;
+        sidebar?.classList.add("collapsed");
+        modalPanel?.classList.remove("collections-sidebar-open");
+        topicSliderShell?.classList.remove("collapsed");
+      } else {
+        sidebar?.classList.toggle("collapsed", !sidebarOpen);
+        modalPanel?.classList.toggle("collections-sidebar-open", sidebarOpen);
+        topicSliderShell?.classList.toggle("collapsed", sidebarOpen);
+      }
 
-      const applyResponsiveState = () => {
-        if (mobileMq.matches) {
-          sidebarOpen = false;
-          sidebar?.classList.add("collapsed");
-          modalPanel?.classList.remove("collections-sidebar-open");
-          topicSliderShell?.classList.remove("collapsed");
-        } else {
-          sidebar?.classList.toggle("collapsed", !sidebarOpen);
-          modalPanel?.classList.toggle("collections-sidebar-open", sidebarOpen);
-          topicSliderShell?.classList.toggle("collapsed", sidebarOpen);
-        }
-
-        window.requestAnimationFrame(() => {
-          syncSliderEdgeState();
-          scrollSliderToActive();
-        });
-      };
-
-      const setSidebarVisibility = (open) => {
-        if (mobileMq.matches) {
-          sidebarOpen = false;
-          sidebar?.classList.add("collapsed");
-          modalPanel?.classList.remove("collections-sidebar-open");
-          topicSliderShell?.classList.remove("collapsed");
-        } else {
-          sidebarOpen = open;
-          sidebar?.classList.toggle("collapsed", !open);
-          modalPanel?.classList.toggle("collections-sidebar-open", open);
-          topicSliderShell?.classList.toggle("collapsed", open);
-        }
-
-        window.requestAnimationFrame(() => {
-          syncSliderEdgeState();
-          scrollSliderToActive();
-        });
-      };
-
-      const showModal = () => {
-        modalOverlay.classList.add("is-visible");
-        applyResponsiveState();
-
-        activeModalState = {
-          modal: modalOverlay,
-          totalItems,
-          selectedIndexRef: () => selectedIndex,
-          prev: () => {
-            if (selectedIndex > 0) {
-              updateModalContent(selectedIndex - 1);
-            }
-          },
-          next: () => {
-            if (selectedIndex < totalItems - 1) {
-              updateModalContent(selectedIndex + 1);
-            }
-          },
-          hide: () => {
-            modalOverlay.classList.remove("is-visible");
-          },
-        };
-
-        window.requestAnimationFrame(() => {
-          syncSliderEdgeState();
-          scrollSliderToActive();
-        });
-      };
-
-      const hideModal = () => {
-        modalOverlay.classList.remove("is-visible");
-        if (activeModalState?.modal === modalOverlay) {
-          activeModalState = null;
-        }
-      };
-
-      const updateNavState = (index) => {
-        const navText = navBar.querySelector(".nav-text");
-        if (navText) {
-          navText.textContent = renderNavText(
-            collectionName,
-            items[index],
-            index,
-            totalItems
-          );
-        }
-
-        prevBtn.disabled = index === 0;
-        nextBtn.disabled = index === totalItems - 1;
-        modalContentPrev.disabled = index === 0;
-        modalContentNext.disabled = index === totalItems - 1;
-        pagingText.textContent = `${index + 1}/${totalItems}`;
-        contentTitle.textContent = items[index].title;
-
-        rerenderSidebarList(index);
-        rerenderSlider(index);
-
-        window.requestAnimationFrame(() => {
-          scrollSliderToActive();
-          syncSliderEdgeState();
-        });
-      };
-
-      const setupIframeHandlers = (container) => {
-        const iframe = container.querySelector(".external-topic-iframe");
-        const loadingDiv = container.querySelector(".iframe-loading");
-        const wrapper = container.closest(".external-url-content-wrapper");
-
-        if (!iframe || !wrapper) {
-          return;
-        }
-
-        const adjustIframe = () => {
-          wrapper.style.height = "100%";
-          wrapper.style.visibility = "visible";
-
-          iframe.style.position = "absolute";
-          iframe.style.inset = "0";
-          iframe.style.width = "100%";
-          iframe.style.height = "100%";
-          iframe.style.border = "none";
-          iframe.style.display = "block";
-        };
-
-        const onResize = throttle(adjustIframe, 100);
-
-        const onLoad = () => {
-          if (loadingDiv) {
-            loadingDiv.style.display = "none";
-          }
-          adjustIframe();
-          window.addEventListener("resize", onResize);
-          addCleanup(() => window.removeEventListener("resize", onResize));
-        };
-
-        const onError = () => {
-          if (loadingDiv) {
-            loadingDiv.style.display = "none";
-          }
-          wrapper.style.visibility = "visible";
-          iframe.style.display = "none";
-          window.removeEventListener("resize", onResize);
-        };
-
-        iframe.addEventListener("load", onLoad, { once: true });
-        iframe.addEventListener("error", onError, { once: true });
-      };
-
-      const fetchTopicJson = async (topicId, requestId, mode) => {
-        const response = await fetch(`/t/${topicId}.json`);
-        const data = await response.json();
-
-        if (mode === "modal" && requestId !== modalRequestId) {
-          return null;
-        }
-
-        if (mode === "page" && requestId !== pageRequestId) {
-          return null;
-        }
-
-        return data;
-      };
-
-      const updatePageContent = async (index) => {
-        if (index < 0 || index >= totalItems) {
-          return;
-        }
-
-        const item = items[index];
-        if (item.external || !item.topicId) {
-          return;
-        }
-
-        selectedIndex = index;
-        updateNavState(index);
-
-        const requestId = ++pageRequestId;
-
-        try {
-          const data = await fetchTopicJson(item.topicId, requestId, "page");
-          if (!data) {
-            return;
-          }
-
-          document.title = item.title;
-
-          let targetContent = document.querySelector(
-            ".topic-post[data-post-number='1'] .cooked"
-          );
-          if (!targetContent) {
-            targetContent = document.querySelector(".topic-body .cooked");
-          }
-          if (!targetContent) {
-            targetContent = document.querySelector(".post-stream .posts .boxed-body");
-          }
-          if (!targetContent) {
-            targetContent = document.querySelector(".post-content");
-          }
-          if (!targetContent) {
-            targetContent = document.querySelector("[data-post-id] .cooked");
-          }
-          if (!targetContent) {
-            targetContent = document.querySelector(".cooked");
-          }
-
-          const cooked = data.post_stream?.posts?.[0]?.cooked;
-          if (targetContent && cooked) {
-            targetContent.innerHTML = cooked;
-            enhanceCooked(targetContent);
-          }
-
-          if (contentArea && cooked) {
-            contentArea.innerHTML = cooked;
-            enhanceCooked(contentArea);
-          }
-        } catch (error) {
-          // eslint-disable-next-line no-console
-          console.error("Error updating page content", error);
-        }
-      };
-
-      const updateModalContent = throttle(async (index) => {
-        if (index < 0 || index >= totalItems) {
-          return;
-        }
-
-        const item = items[index];
-        selectedIndex = index;
-        updateNavState(index);
-        contentHeaderActions.innerHTML = "";
-
-        if (item.external) {
-          modalPanel.classList.add("external-url-active");
-          contentArea.classList.add("external-url-content-wrapper");
-          contentArea.innerHTML = loadExternalContent(item.href);
-          setupIframeHandlers(contentArea);
-
-          contentHeaderActions.innerHTML = `
-            <a href="${escapeHtml(
-              item.href
-            )}" target="_blank" rel="noopener noreferrer" class="btn btn-primary collections-open-external-button">
-              ${externalLinkIcon}
-              Open in New Tab
-            </a>
-          `;
-
-          if (mobileMq.matches) {
-            setSidebarVisibility(false);
-          }
-
-          return;
-        }
-
-        modalPanel.classList.remove("external-url-active");
-        contentArea.classList.remove("external-url-content-wrapper");
-        contentArea.innerHTML = "<p>Loading...</p>";
-
-        if (!item.topicId) {
-          contentArea.innerHTML = "<p>No content</p>";
-          return;
-        }
-
-        const requestId = ++modalRequestId;
-
-        try {
-          const data = await fetchTopicJson(item.topicId, requestId, "modal");
-          if (!data) {
-            return;
-          }
-
-          const cooked = data.post_stream?.posts?.[0]?.cooked;
-          contentArea.innerHTML = cooked || "<p>No content</p>";
-          enhanceCooked(contentArea);
-        } catch {
-          if (requestId !== modalRequestId) {
-            return;
-          }
-          contentArea.innerHTML = "<p>Error loading</p>";
-        }
-      }, SCROLL_THROTTLE_MS);
-
-      applyResponsiveState();
-
-      const onResize = throttle(() => {
+      window.requestAnimationFrame(() => {
         syncSliderEdgeState();
         scrollSliderToActive();
-      }, 50);
-
-      window.addEventListener("resize", onResize);
-      addCleanup(() => window.removeEventListener("resize", onResize));
-
-      toggleBtn.addEventListener("click", showModal);
-      sidebarToggle?.addEventListener("click", () =>
-        setSidebarVisibility(!sidebarOpen)
-      );
-      closeBtn?.addEventListener("click", hideModal);
-
-      const onSliderShellClick = (event) => {
-        const prevEdge = event.target.closest(".topic-slider-edge-prev");
-        if (prevEdge) {
-          scrollSliderByPage(-1);
-          return;
-        }
-
-        const nextEdge = event.target.closest(".topic-slider-edge-next");
-        if (nextEdge) {
-          scrollSliderByPage(1);
-        }
-      };
-      topicSliderShell?.addEventListener("click", onSliderShellClick);
-      addCleanup(() =>
-        topicSliderShell?.removeEventListener("click", onSliderShellClick)
-      );
-
-      const onSliderScroll = throttle(syncSliderEdgeState, 30);
-      topicSliderContainer?.addEventListener("scroll", onSliderScroll);
-      addCleanup(() =>
-        topicSliderContainer?.removeEventListener("scroll", onSliderScroll)
-      );
-
-      prevBtn.addEventListener("click", () => {
-        if (selectedIndex > 0) {
-          updatePageContent(selectedIndex - 1);
-        }
       });
+    };
 
-      nextBtn.addEventListener("click", () => {
-        if (selectedIndex < totalItems - 1) {
-          updatePageContent(selectedIndex + 1);
-        }
+    const setSidebarVisibility = (open) => {
+      if (mobileMq.matches) {
+        sidebarOpen = false;
+        sidebar?.classList.add("collapsed");
+        modalPanel?.classList.remove("collections-sidebar-open");
+        topicSliderShell?.classList.remove("collapsed");
+      } else {
+        sidebarOpen = open;
+        sidebar?.classList.toggle("collapsed", !open);
+        modalPanel?.classList.toggle("collections-sidebar-open", open);
+        topicSliderShell?.classList.toggle("collapsed", open);
+      }
+
+      window.requestAnimationFrame(() => {
+        syncSliderEdgeState();
+        scrollSliderToActive();
       });
+    };
 
-      modalContentPrev?.addEventListener("click", () => {
-        if (selectedIndex > 0) {
-          updateModalContent(selectedIndex - 1);
-        }
+    const showModal = () => {
+      modalOverlay.classList.add("is-visible");
+      applyResponsiveState();
+
+      activeModalState = {
+        modal: modalOverlay,
+        totalItems,
+        selectedIndexRef: () => selectedIndex,
+        prev: () => {
+          if (selectedIndex > 0) {
+            updateModalContent(selectedIndex - 1);
+          }
+        },
+        next: () => {
+          if (selectedIndex < totalItems - 1) {
+            updateModalContent(selectedIndex + 1);
+          }
+        },
+        hide: () => {
+          modalOverlay.classList.remove("is-visible");
+        },
+      };
+
+      window.requestAnimationFrame(() => {
+        syncSliderEdgeState();
+        scrollSliderToActive();
       });
+    };
 
-      modalContentNext?.addEventListener("click", () => {
-        if (selectedIndex < totalItems - 1) {
-          updateModalContent(selectedIndex + 1);
-        }
+    const hideModal = () => {
+      modalOverlay.classList.remove("is-visible");
+      if (activeModalState?.modal === modalOverlay) {
+        activeModalState = null;
+      }
+    };
+
+    const updateNavState = (index) => {
+      const navText = navBar.querySelector(".nav-text");
+      if (navText) {
+        navText.textContent = renderNavText(
+          collectionName,
+          items[index],
+          index,
+          totalItems
+        );
+      }
+
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === totalItems - 1;
+      modalContentPrev.disabled = index === 0;
+      modalContentNext.disabled = index === totalItems - 1;
+      pagingText.textContent = `${index + 1}/${totalItems}`;
+      contentTitle.textContent = items[index].title;
+
+      rerenderSidebarList(index);
+      rerenderSlider(index);
+
+      window.requestAnimationFrame(() => {
+        scrollSliderToActive();
+        syncSliderEdgeState();
       });
+    };
 
-      const onCollectionListClick = (event) => {
-        const button = event.target.closest(".collection-item-link");
-        if (!button) {
+    const setupIframeHandlers = (container) => {
+      const iframe = container.querySelector(".external-topic-iframe");
+      const loadingDiv = container.querySelector(".iframe-loading");
+      const wrapper = container.closest(".external-url-content-wrapper");
+
+      if (!iframe || !wrapper) {
+        return;
+      }
+
+      const adjustIframe = () => {
+        wrapper.style.height = "100%";
+        wrapper.style.visibility = "visible";
+
+        iframe.style.position = "absolute";
+        iframe.style.inset = "0";
+        iframe.style.width = "100%";
+        iframe.style.height = "100%";
+        iframe.style.border = "none";
+        iframe.style.display = "block";
+      };
+
+      const onResize = throttle(adjustIframe, 100);
+
+      const onLoad = () => {
+        if (loadingDiv) {
+          loadingDiv.style.display = "none";
+        }
+        adjustIframe();
+        window.addEventListener("resize", onResize);
+        addCleanup(() => window.removeEventListener("resize", onResize));
+      };
+
+      const onError = () => {
+        if (loadingDiv) {
+          loadingDiv.style.display = "none";
+        }
+        wrapper.style.visibility = "visible";
+        iframe.style.display = "none";
+        window.removeEventListener("resize", onResize);
+      };
+
+      iframe.addEventListener("load", onLoad, { once: true });
+      iframe.addEventListener("error", onError, { once: true });
+    };
+
+    const fetchTopicJson = async (topicId, requestId, mode) => {
+      const response = await fetch(`/t/${topicId}.json`);
+      const data = await response.json();
+
+      if (mode === "modal" && requestId !== modalRequestId) {
+        return null;
+      }
+
+      if (mode === "page" && requestId !== pageRequestId) {
+        return null;
+      }
+
+      return data;
+    };
+
+    const updatePageContent = async (index) => {
+      if (index < 0 || index >= totalItems) {
+        return;
+      }
+
+      const item = items[index];
+      if (item.external || !item.topicId) {
+        return;
+      }
+
+      selectedIndex = index;
+      updateNavState(index);
+
+      const requestId = ++pageRequestId;
+
+      try {
+        const data = await fetchTopicJson(item.topicId, requestId, "page");
+        if (!data) {
           return;
         }
 
-        const index = parseInt(button.getAttribute("data-index"), 10);
-        if (Number.isNaN(index)) {
+        document.title = item.title;
+
+        let targetContent = document.querySelector(
+          ".topic-post[data-post-number='1'] .cooked"
+        );
+        if (!targetContent) {
+          targetContent = document.querySelector(".topic-body .cooked");
+        }
+        if (!targetContent) {
+          targetContent = document.querySelector(".post-stream .posts .boxed-body");
+        }
+        if (!targetContent) {
+          targetContent = document.querySelector(".post-content");
+        }
+        if (!targetContent) {
+          targetContent = document.querySelector("[data-post-id] .cooked");
+        }
+        if (!targetContent) {
+          targetContent = document.querySelector(".cooked");
+        }
+
+        const cooked = data.post_stream?.posts?.[0]?.cooked;
+        if (targetContent && cooked) {
+          targetContent.innerHTML = cooked;
+          enhanceCooked(targetContent);
+        }
+
+        if (contentArea && cooked) {
+          contentArea.innerHTML = cooked;
+          enhanceCooked(contentArea);
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error updating page content", error);
+      }
+    };
+
+    const updateModalContent = throttle(async (index) => {
+      if (index < 0 || index >= totalItems) {
+        return;
+      }
+
+      const item = items[index];
+      selectedIndex = index;
+      updateNavState(index);
+      contentHeaderActions.innerHTML = "";
+
+      if (item.external) {
+        modalPanel.classList.add("external-url-active");
+        contentArea.classList.add("external-url-content-wrapper");
+        contentArea.innerHTML = loadExternalContent(item.href);
+        setupIframeHandlers(contentArea);
+
+        contentHeaderActions.innerHTML = `
+          <a href="${escapeHtml(
+            item.href
+          )}" target="_blank" rel="noopener noreferrer" class="btn btn-primary collections-open-external-button">
+            ${externalLinkIcon}
+            Open in New Tab
+          </a>
+        `;
+
+        if (mobileMq.matches) {
+          setSidebarVisibility(false);
+        }
+
+        return;
+      }
+
+      modalPanel.classList.remove("external-url-active");
+      contentArea.classList.remove("external-url-content-wrapper");
+      contentArea.innerHTML = "<p>Loading...</p>";
+
+      if (!item.topicId) {
+        contentArea.innerHTML = "<p>No content</p>";
+        return;
+      }
+
+      const requestId = ++modalRequestId;
+
+      try {
+        const data = await fetchTopicJson(item.topicId, requestId, "modal");
+        if (!data) {
           return;
         }
 
-        updateModalContent(index);
-      };
-      collectionList?.addEventListener("click", onCollectionListClick);
-      addCleanup(() =>
-        collectionList?.removeEventListener("click", onCollectionListClick)
-      );
+        const cooked = data.post_stream?.posts?.[0]?.cooked;
+        contentArea.innerHTML = cooked || "<p>No content</p>";
+        enhanceCooked(contentArea);
+      } catch {
+        if (requestId !== modalRequestId) {
+          return;
+        }
+        contentArea.innerHTML = "<p>Error loading</p>";
+      }
+    }, SCROLL_THROTTLE_MS);
 
-      const onSliderClick = (event) => {
-        const button = event.target.closest(".slider-item");
-        if (!button) {
+    applyResponsiveState();
+
+    const onResize = throttle(() => {
+      syncSliderEdgeState();
+      scrollSliderToActive();
+    }, 50);
+
+    window.addEventListener("resize", onResize);
+    addCleanup(() => window.removeEventListener("resize", onResize));
+
+    toggleBtn.addEventListener("click", showModal);
+    sidebarToggle?.addEventListener("click", () =>
+      setSidebarVisibility(!sidebarOpen)
+    );
+    closeBtn?.addEventListener("click", hideModal);
+
+    const onSliderShellClick = (event) => {
+      const prevEdge = event.target.closest(".topic-slider-edge-prev");
+      if (prevEdge) {
+        scrollSliderByPage(-1);
+        return;
+      }
+
+      const nextEdge = event.target.closest(".topic-slider-edge-next");
+      if (nextEdge) {
+        scrollSliderByPage(1);
+      }
+    };
+    topicSliderShell?.addEventListener("click", onSliderShellClick);
+    addCleanup(() =>
+      topicSliderShell?.removeEventListener("click", onSliderShellClick)
+    );
+
+    const onSliderScroll = throttle(syncSliderEdgeState, 30);
+    topicSliderContainer?.addEventListener("scroll", onSliderScroll);
+    addCleanup(() =>
+      topicSliderContainer?.removeEventListener("scroll", onSliderScroll)
+    );
+
+    prevBtn.addEventListener("click", () => {
+      if (selectedIndex > 0) {
+        updatePageContent(selectedIndex - 1);
+      }
+    });
+
+    nextBtn.addEventListener("click", () => {
+      if (selectedIndex < totalItems - 1) {
+        updatePageContent(selectedIndex + 1);
+      }
+    });
+
+    modalContentPrev?.addEventListener("click", () => {
+      if (selectedIndex > 0) {
+        updateModalContent(selectedIndex - 1);
+      }
+    });
+
+    modalContentNext?.addEventListener("click", () => {
+      if (selectedIndex < totalItems - 1) {
+        updateModalContent(selectedIndex + 1);
+      }
+    });
+
+    const onCollectionListClick = (event) => {
+      const button = event.target.closest(".collection-item-link");
+      if (!button) {
+        return;
+      }
+
+      const index = parseInt(button.getAttribute("data-index"), 10);
+      if (Number.isNaN(index)) {
+        return;
+      }
+
+      updateModalContent(index);
+    };
+    collectionList?.addEventListener("click", onCollectionListClick);
+    addCleanup(() =>
+      collectionList?.removeEventListener("click", onCollectionListClick)
+    );
+
+    const onSliderClick = (event) => {
+      const button = event.target.closest(".slider-item");
+      if (!button) {
+        return;
+      }
+
+      const index = parseInt(button.getAttribute("data-index"), 10);
+      if (Number.isNaN(index)) {
+        return;
+      }
+
+      updateModalContent(index);
+    };
+    topicSlider?.addEventListener("click", onSliderClick);
+    addCleanup(() => topicSlider?.removeEventListener("click", onSliderClick));
+
+    const overlayClickHandler = (event) => {
+      if (event.target === modalOverlay) {
+        hideModal();
+      }
+    };
+    modalOverlay.addEventListener("click", overlayClickHandler);
+    addCleanup(() =>
+      modalOverlay.removeEventListener("click", overlayClickHandler)
+    );
+
+    currentCleanup = () => {
+      cleanupFns.forEach((fn) => fn());
+      modalRequestId++;
+      pageRequestId++;
+      modalOverlay.remove();
+      navBar.remove();
+    };
+
+    if (!keyboardHandlerBound) {
+      let lastKeyPress = 0;
+
+      document.addEventListener("keydown", (event) => {
+        if (
+          !activeModalState ||
+          !activeModalState.modal.classList.contains("is-visible")
+        ) {
           return;
         }
 
-        const index = parseInt(button.getAttribute("data-index"), 10);
-        if (Number.isNaN(index)) {
-          return;
-        }
+        const now = Date.now();
+        const selected = activeModalState.selectedIndexRef();
+        const maxIndex = activeModalState.totalItems - 1;
 
-        updateModalContent(index);
-      };
-      topicSlider?.addEventListener("click", onSliderClick);
-      addCleanup(() => topicSlider?.removeEventListener("click", onSliderClick));
-
-      const overlayClickHandler = (event) => {
-        if (event.target === modalOverlay) {
-          hideModal();
-        }
-      };
-      modalOverlay.addEventListener("click", overlayClickHandler);
-      addCleanup(() =>
-        modalOverlay.removeEventListener("click", overlayClickHandler)
-      );
-
-      currentCleanup = () => {
-        cleanupFns.forEach((fn) => fn());
-        modalRequestId++;
-        pageRequestId++;
-        modalOverlay.remove();
-        navBar.remove();
-      };
-
-      if (!keyboardHandlerBound) {
-        let lastKeyPress = 0;
-
-        document.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowLeft" && selected > 0) {
+          if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
+            return;
+          }
           if (
-            !activeModalState ||
-            !activeModalState.modal.classList.contains("is-visible")
+            document.activeElement?.classList?.contains(
+              "collections-sidebar-resizer"
+            )
           ) {
             return;
           }
-
-          const now = Date.now();
-          const selected = activeModalState.selectedIndexRef();
-          const maxIndex = activeModalState.totalItems - 1;
-
-          if (event.key === "ArrowLeft" && selected > 0) {
-            if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
-              return;
-            }
-            if (
-              document.activeElement?.classList?.contains(
-                "collections-sidebar-resizer"
-              )
-            ) {
-              return;
-            }
-            lastKeyPress = now;
-            event.preventDefault();
-            activeModalState.prev();
-          } else if (event.key === "ArrowRight" && selected < maxIndex) {
-            if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
-              return;
-            }
-            if (
-              document.activeElement?.classList?.contains(
-                "collections-sidebar-resizer"
-              )
-            ) {
-              return;
-            }
-            lastKeyPress = now;
-            event.preventDefault();
-            activeModalState.next();
-          } else if (event.key === "Escape") {
-            event.preventDefault();
-            activeModalState.hide();
+          lastKeyPress = now;
+          event.preventDefault();
+          activeModalState.prev();
+        } else if (event.key === "ArrowRight" && selected < maxIndex) {
+          if (now - lastKeyPress < KEYBOARD_THROTTLE_MS) {
+            return;
           }
-        });
+          if (
+            document.activeElement?.classList?.contains(
+              "collections-sidebar-resizer"
+            )
+          ) {
+            return;
+          }
+          lastKeyPress = now;
+          event.preventDefault();
+          activeModalState.next();
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          activeModalState.hide();
+        }
+      });
 
-        keyboardHandlerBound = true;
-      }
+      keyboardHandlerBound = true;
+    }
 
-      syncSliderEdgeState();
+    syncSliderEdgeState();
+  }
+
+  function scheduleRebuild(currentPath) {
+    if (rebuildScheduled) {
+      return;
+    }
+
+    rebuildScheduled = true;
+
+    requestAnimationFrame(() => {
+      rebuildScheduled = false;
+      buildNavigator(currentPath);
     });
+  }
+
+  function setupSidebarObserver(getCurrentPath) {
+    if (sidebarObserver) {
+      sidebarObserver.disconnect();
+    }
+
+    sidebarObserver = new MutationObserver(() => {
+      scheduleRebuild(getCurrentPath());
+    });
+
+    sidebarObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
+  }
+
+  api.decorateCookedElement(() => {}, {
+    id: "collections-navigator-modal",
+  });
+
+  api.onPageChange((url) => {
+    const getCurrentPath = () => normalizePath(url || window.location.pathname);
+
+    cleanupExistingUi();
+    scheduleRebuild(getCurrentPath());
+    setupSidebarObserver(getCurrentPath);
   });
 });
